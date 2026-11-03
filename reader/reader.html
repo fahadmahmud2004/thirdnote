@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThirdNote</title>
+  <link rel="icon" href="../icons/icon32.png">
+  <link rel="stylesheet" href="../lib/ui.css">
+  <link rel="stylesheet" href="reader.css">
+</head>
+<body>
+  <header class="bar" id="bar"></header>
+  <div class="hero" id="hero"></div>
+  <main class="page" id="main"></main>
+
+  <div class="floating tb" id="tb" hidden>
+    <div class="row" id="tb-colors"></div>
+    <textarea id="tb-note" rows="2" hidden></textarea>
+  </div>
+
+  <div class="floating pop" id="pop" hidden>
+    <div class="row" id="pop-colors"></div>
+    <textarea id="pop-note" rows="3"></textarea>
+    <div class="row end">
+      <button class="btn small danger" id="pop-delete"></button>
+      <span class="grow"></span>
+      <button class="btn small primary" id="pop-save"></button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="../lib/shared.js"></script>
+  <script src="../lib/i18n.js"></script>
+  <script src="../lib/sanitize.js"></script>
+  <script src="../lib/anchor.js"></script>
+  <script type="module" src="reader.js"></script>
+</body>
+</html>

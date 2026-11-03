@@ -1,0 +1,8 @@
+# local only
+test/
+dist/
+PUBLISHING.md
+GUIDE-bn.md
+.claude/
+._*
+.DS_Store

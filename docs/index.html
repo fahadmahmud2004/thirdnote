@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ThirdNote: Capture everything. Remember anything.</title>
+  <meta name="description" content="Highlight and save what you learn from ChatGPT, Claude, Gemini, YouTube and any website, then review it as flashcards. Free Chrome extension. Everything stays on your device.">
+  <meta property="og:title" content="ThirdNote: Capture everything. Remember anything.">
+  <meta property="og:description" content="Highlight AI chats, YouTube and the web, then review it all as flashcards.">
+  <meta property="og:image" content="assets/cover.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/favicon.png">
+  <style>
+    :root {
+      --bg: #faf9f6; --surface: #fff; --text: #1d1c1a; --muted: #5f5b54; --line: #e6e2da;
+      --ink: #1f2a44; --ink-2: #141b33; --marker: #f2c94c;
+      --font: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #0e1326; --surface: #161d38; --text: #eef1f8; --muted: #a9b2cc; --line: #252e52; }
+      .mark { background: linear-gradient(transparent 62%, rgba(242,201,76,.45) 62%, rgba(242,201,76,.45) 90%, transparent 90%) !important; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    a { color: inherit; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+    header { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 85%, transparent); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+    header .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 750; font-size: 19px; text-decoration: none; letter-spacing: -0.01em; }
+    .brand img { width: 34px; height: 34px; border-radius: 8px; }
+    nav { display: flex; gap: 22px; align-items: center; font-size: 14.5px; }
+    nav a { text-decoration: none; color: var(--muted); }
+    nav a:hover { color: var(--text); }
+
+    .btn { display: inline-flex; align-items: center; gap: 9px; height: 48px; padding: 0 22px; border-radius: 13px; font-weight: 650; font-size: 15.5px;
+      text-decoration: none; background: var(--marker); color: #141b33; box-shadow: 0 8px 24px rgba(242, 201, 76, 0.28); transition: transform .15s; }
+    .btn:hover { transform: translateY(-1px); }
+    .btn.ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.25); }
+    nav .btn { height: 38px; padding: 0 16px; font-size: 14px; box-shadow: none; }
+
+    .hero { background: linear-gradient(135deg, #25335c, #141b33); color: #fff; overflow: hidden; }
+    .hero .wrap { display: grid; grid-template-columns: 1fr 1.1fr; gap: 48px; align-items: center; padding-top: 80px; padding-bottom: 80px; }
+    .eyebrow { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: #c6cde0; }
+    .hero h1 { font-size: clamp(40px, 5.6vw, 68px); line-height: 1.02; letter-spacing: -0.04em; margin: 18px 0 0; font-weight: 820; }
+    .hero h1 span { color: var(--marker); }
+    .hero p { font-size: 19px; color: #c6cde0; max-width: 520px; margin: 22px 0 32px; }
+    .hero .actions { display: flex; gap: 12px; flex-wrap: wrap; }
+    .hero .note { font-size: 13.5px; color: #9aa4bf; margin-top: 16px; }
+    .hero-shot { border-radius: 16px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.45); transform: rotate(-1.5deg); }
+    .hero-shot img { display: block; width: 100%; }
+
+    section { padding: 88px 0; }
+    .center { text-align: center; }
+    h2 { font-size: clamp(30px, 3.6vw, 44px); letter-spacing: -0.03em; line-height: 1.1; margin: 0; font-weight: 800; }
+    .lead { font-size: 18px; color: var(--muted); max-width: 640px; margin: 16px auto 0; }
+    .mark { background: linear-gradient(transparent 60%, var(--marker) 60%, var(--marker) 92%, transparent 92%); }
+
+    .sites { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 34px; }
+    .sites { max-width: 860px; margin-left: auto; margin-right: auto; }
+    .sites span { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--line); background: var(--surface); padding: 10px 18px 10px 14px;
+      border-radius: 999px; font-size: 15px; font-weight: 650; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .sites i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .kicker { display: inline-block; font-size: 12.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+      border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; margin-bottom: 18px; }
+
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 48px; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 28px; transition: transform .18s, box-shadow .18s, border-color .18s; }
+    .card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px rgba(20,18,15,.10); border-color: color-mix(in srgb, var(--marker) 55%, var(--line)); }
+    .card .ic { width: 48px; height: 48px; border-radius: 14px; background: var(--marker); color: #141b33; display: grid; place-items: center;
+      box-shadow: 0 6px 16px rgba(242,201,76,.28); }
+    .card h3 { margin: 18px 0 6px; font-size: 18px; letter-spacing: -0.01em; }
+    .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+    .feature { display: grid; grid-template-columns: 1fr 1.25fr; gap: 56px; align-items: center; padding: 40px 0; }
+    .feature.flip { grid-template-columns: 1.25fr 1fr; }
+    .feature.flip .copy { order: 2; }
+    .feature h3 { font-size: 30px; letter-spacing: -0.025em; line-height: 1.15; margin: 0 0 14px; }
+    .feature p { color: var(--muted); font-size: 17px; margin: 0; }
+    .feature ul { color: var(--muted); padding-left: 20px; margin: 14px 0 0; }
+    .shot { border-radius: 16px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(20,18,15,.14); }
+    .shot img { display: block; width: 100%; }
+
+    .privacy { background: var(--ink-2); color: #fff; border-radius: 26px; padding: 56px; display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; align-items: center; }
+    .privacy p { color: #c6cde0; font-size: 17px; }
+    .privacy ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    .privacy li { display: flex; gap: 12px; align-items: center; background: rgba(255,255,255,.06); border-radius: 12px; padding: 14px 16px; font-weight: 600; }
+    .privacy li svg { color: var(--marker); flex: none; }
+
+    .cta { text-align: center; }
+    .cta .btn { margin-top: 28px; }
+    footer { border-top: 1px solid var(--line); padding: 30px 0 40px; color: var(--muted); font-size: 14px; }
+    footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+    @media (max-width: 860px) {
+      nav a:not(.btn) { display: none; }
+      .hero .wrap, .feature, .feature.flip, .privacy { grid-template-columns: 1fr; }
+      .feature.flip .copy { order: 0; }
+      .grid { grid-template-columns: 1fr; }
+      .privacy { padding: 32px 24px; }
+      section { padding: 64px 0; }
+      .hero .wrap { padding-top: 56px; padding-bottom: 56px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <a class="brand" href="./"><img src="assets/logo.png" alt="">ThirdNote</a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#privacy">Privacy</a>
+        <a class="btn" href="#install" data-store-link>Add to Chrome</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="wrap">
+      <div>
+        <img src="assets/lockup-dark.png" alt="ThirdNote" style="width:190px;display:block;margin-bottom:34px">
+        <div class="eyebrow">Free Chrome extension</div>
+        <h1>Capture everything.<br><span>Remember anything.</span></h1>
+        <p>Turn information into knowledge. Highlight what matters in your AI chats, on YouTube and across the web, keep it in collections, and review it as flashcards.</p>
+        <div class="actions">
+          <a class="btn" href="#install" data-store-link>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+            Add to Chrome, it's free
+          </a>
+          <a class="btn ghost" href="#features">See how it works</a>
+        </div>
+        <div class="note">No account. No servers. Your notes stay in your browser.</div>
+      </div>
+      <div class="hero-shot"><img src="assets/app-reader.png" alt="ThirdNote reader showing a saved chat with highlights"></div>
+    </div>
+  </div>
+
+  <section class="center">
+    <div class="wrap">
+      <div class="kicker">Works everywhere</div>
+      <h2>Works where you <span class="mark">learn</span></h2>
+      <p class="lead">Save whole AI conversations message by message, or highlight anything on any website.</p>
+      <div class="sites">
+        <span><i style="background:#10a37f"></i>ChatGPT</span><span><i style="background:#d97757"></i>Claude</span><span><i style="background:#4f7df3"></i>Gemini</span><span><i style="background:#8b93a7"></i>NotebookLM</span><span><i style="background:#4d6bfe"></i>DeepSeek</span><span><i style="background:#20b8cd"></i>Perplexity</span><span><i style="background:#9aa3b5"></i>Grok</span><span><i style="background:#2b88d8"></i>Copilot</span><span><i style="background:#ff3d3d"></i>YouTube</span><span><i style="background:#1877f2"></i>Facebook</span><span><i style="background:#9aa3b5"></i>Wikipedia</span><span><i style="background:#f2c94c"></i>Any website</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" style="padding-top:0">
+    <div class="wrap">
+      <div class="center"><div class="kicker">Features</div><h2>Everything you need to <span class="mark">remember</span></h2></div>
+      <div class="grid">
+        <div class="card">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg></div>
+          <h3>Highlight in four colours</h3>
+          <p>Select text and press 1 to 4. Key point, Important, Example, Idea, or names you choose.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z"/></svg></div>
+          <h3>Save chats that keep growing</h3>
+          <p>Press Save chat once. New messages are added automatically while you keep chatting.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></div>
+          <h3>Capture any part of the screen</h3>
+          <p>Grab a video frame, a chart or a post. On YouTube the timestamp is saved with it.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
+          <h3>One collection at a time</h3>
+          <p>Switch on Collecting and every save, from any site, lands in the collection you are working on.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg></div>
+          <h3>Review as flashcards</h3>
+          <p>Your own questions become the prompts. Recall first, reveal, and mark what to see again.</p>
+        </div>
+        <div class="card">
+          <div class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg></div>
+          <h3>Export anytime</h3>
+          <p>Markdown or PDF, with highlights kept. Light and dark themes, in English and Bangla.</p>
+        </div>
+      </div>
+
+      <div class="feature" style="margin-top:56px">
+        <div class="copy">
+          <h3>Highlight the answers that matter</h3>
+          <p>A small toolbar appears under your selection. Pick a colour, add a note if you like, done. Highlights come back every time you open the page.</p>
+        </div>
+        <div class="shot"><img src="assets/app-chat.png" alt="Highlighting text in an AI chat"></div>
+      </div>
+      <div class="feature flip">
+        <div class="copy">
+          <h3>Everything worth remembering, in one place</h3>
+          <p>The side panel keeps your collections, groups and highlights next to whatever you are reading. Search across all of it.</p>
+        </div>
+        <div class="shot" style="max-width:380px;justify-self:center"><img src="assets/app-sidepanel.png" alt="ThirdNote side panel with highlights"></div>
+      </div>
+      <div class="feature">
+        <div class="copy">
+          <h3>Remember anything</h3>
+          <p>Review mode shows one card at a time. Your question on the front, your highlight on the back. Keyboard friendly: Space, 1, 2.</p>
+        </div>
+        <div class="shot"><img src="assets/app-review.png" alt="Flashcard review"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy" style="padding-top:0">
+    <div class="wrap">
+      <div class="privacy">
+        <div>
+          <h2>Private by design</h2>
+          <p>ThirdNote has no servers and no accounts. Everything you save lives in your own browser, and you can download a full backup whenever you want.</p>
+          <a href="privacy.html" style="color:#f2c94c;font-weight:650">Read the privacy policy</a>
+        </div>
+        <ul>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Stored only on your device</li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>No tracking, no analytics, no ads</li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Reads a chat only when you save it</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta" id="install">
+    <div class="wrap">
+      <h2>Turn information into <span class="mark">knowledge</span></h2>
+      <p class="lead" id="install-note">ThirdNote is on its way to the Chrome Web Store. This button will take you there as soon as it is live.</p>
+      <a class="btn" href="#install" data-store-link>Add to Chrome, it's free</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>ThirdNote. Capture everything. Remember anything.</span>
+      <span><a href="privacy.html">Privacy</a> · <a href="mailto:fahadmahmud2004@gmail.com">Contact</a> · Built by <a href="https://fahadmahmud.com" target="_blank" rel="noopener">Fahad Mahmud</a></span>
+    </div>
+  </footer>
+
+  <script>
+    // Set to the Chrome Web Store page once the extension is published.
+    const STORE_URL = '';
+    if (STORE_URL) {
+      document.querySelectorAll('[data-store-link]').forEach((a) => { a.href = STORE_URL; a.target = '_blank'; a.rel = 'noopener'; });
+      document.getElementById('install-note').textContent = 'Free on the Chrome Web Store. Works in Chrome, Edge, Brave and other Chromium browsers.';
+    }
+  </script>
+</body>
+</html>

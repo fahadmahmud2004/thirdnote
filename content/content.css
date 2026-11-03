@@ -1,0 +1,5 @@
+/* Painted by the CSS Custom Highlight API from content.js. */
+::highlight(nm-yellow) { background-color: rgba(242, 201, 76, 0.45); }
+::highlight(nm-red) { background-color: rgba(235, 111, 92, 0.35); }
+::highlight(nm-green) { background-color: rgba(76, 184, 113, 0.35); }
+::highlight(nm-blue) { background-color: rgba(91, 141, 239, 0.35); }

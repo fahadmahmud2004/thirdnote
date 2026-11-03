@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <g id="lock" transform="translate(130.88888888888889 202.65063815646698) scale(0.7777777777777778)">
+    
+  <rect x="600" y="60" width="340" height="420" fill="#F2C94C"></rect>
+  <path d="M690 180 H880 M690 250 H880 M690 320 H880 M690 390 H820" stroke="#141B33" stroke-width="30" stroke-linecap="round"></path>
+  <rect x="40" y="0" width="900" height="96" rx="10" fill="#1F2A44"></rect>
+  <rect x="160" y="96" width="120" height="250" fill="#1F2A44"></rect>
+  <path d="M200 120 V330 M240 120 V330" stroke="#141B33" stroke-width="12" stroke-linecap="round" opacity=".15"></path>
+  <path d="M160 346 H280 L220 480 Z" fill="#F2C94C"></path>
+  <path d="M196 426 H244 L220 480 Z" fill="#141B33"></path>
+  <path d="M330 150 H430 L520 340 V96 H620 V480 H520 L430 290 V480 H330 Z" fill="#1F2A44"></path>
+    <text id="wm" x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, &quot;SF Pro Display&quot;, &quot;Helvetica Neue&quot;, Arial, sans-serif" font-weight="800" font-size="200" fill="#1F2A44" letter-spacing="-4" transform="translate(40 753.469770348383) scale(0.9998437744102484)">ThirdNote</text>
+  </g></svg>
