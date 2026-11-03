@@ -9,9 +9,23 @@
   <link rel="stylesheet" href="reader.css">
 </head>
 <body>
-  <header class="bar" id="bar"></header>
-  <div class="hero" id="hero"></div>
-  <main class="page" id="main"></main>
+  <!-- Printing: a real table, because Chrome repeats <thead>/<tfoot> on every
+       page. They hold empty bands that act as page margins, while @page has
+       none (which stops Chrome adding its own URL and date lines). -->
+  <table class="pf">
+    <thead><tr><td class="pf-band"></td></tr></thead>
+    <tfoot><tr><td class="pf-band"></td></tr></tfoot>
+    <tbody><tr><td class="pf-cell">
+      <div class="print-brand">
+        <svg class="pb-mark" viewBox="0 0 1024 1024" aria-hidden="true"><rect width="1024" height="1024" rx="232" fill="#1C2645"/><g transform="translate(100 296) scale(0.82)"><rect x="600" y="60" width="340" height="420" fill="#F2C94C"/><path d="M690 180H880M690 250H880M690 320H880M690 390H820" stroke="#141B33" stroke-width="30" stroke-linecap="round"/><rect x="40" y="0" width="900" height="96" rx="10" fill="#fff"/><rect x="160" y="96" width="120" height="250" fill="#fff"/><path d="M160 346H280L220 480Z" fill="#F2C94C"/><path d="M196 426H244L220 480Z" fill="#141B33"/><path d="M330 150H430L520 340V96H620V480H520L430 290V480H330Z" fill="#fff"/></g></svg>
+        <div class="pb-name"><b>ThirdNote</b><span>Capture everything. Remember anything.</span></div>
+        <div class="pb-date" id="pb-date"></div>
+      </div>
+      <header class="bar" id="bar"></header>
+      <div class="hero" id="hero"></div>
+      <main class="page" id="main"></main>
+    </td></tr></tbody>
+  </table>
 
   <div class="floating tb" id="tb" hidden>
     <div class="row" id="tb-colors"></div>

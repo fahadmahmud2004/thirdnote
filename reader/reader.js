@@ -197,6 +197,8 @@ document.addEventListener('click', (e) => {
 });
 
 function renderHero() {
+  const date = document.getElementById('pb-date');
+  if (date) date.textContent = new Date().toLocaleDateString(NM.getLang() === 'bn' ? 'bn-BD' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const src = st.kind === 'source' ? st.sections[0]?.source : null;
   const titleText = src ? sourceTitle(src) : st.topic?.name || '';
   document.title = `${titleText} · ThirdNote`;
@@ -226,6 +228,16 @@ function renderHero() {
     if (src.kind !== 'note') meta.append(h('span', {}, NM.siteName(src)), dot());
     meta.append(h('span', {}, items), dot(), h('span', {}, NM.count(total, 'sp.hls', 'sp.hl1')));
     if (src.tracked) meta.append(h('span', { class: 'pill-live', title: t('rd.liveTip') }, t('rd.live')));
+    if (src.deletedKeys?.length) {
+      meta.append(dot(), h('button', {
+        class: 'link-btn',
+        onclick: async () => {
+          await rpc('restoreDeleted', { id: src.id });
+          toast(t('rd.restored'));
+          reload();
+        },
+      }, ic('rotate', 13), t('rd.restore', { n: src.deletedKeys.length })));
+    }
     if (src.url) meta.append(dot(), h('a', { href: src.url, target: '_blank', rel: 'noopener' }, t('rd.original'), ic('external', 13)));
   } else {
     meta.append(h('span', {}, st.topic.subject), dot(), h('span', {}, NM.count(st.sections.length, 'sp.sources', 'sp.source1')),
@@ -387,8 +399,8 @@ function renderMessage(sec, m) {
       own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
       m.edited && m.role !== 'note' ? h('span', { class: 'edited-tag' }, t('rd.edited')) : null,
       acts),
-    body,
-    failed.length ? orphanList(failed, t('rd.orphans')) : null);
+    body);
+  if (failed.length) article.append(orphanList(failed, t('rd.orphans')));
   return article;
 }
 

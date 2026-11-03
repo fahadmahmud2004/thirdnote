@@ -150,7 +150,29 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
   .floating textarea { width: min(270px, calc(100vw - 60px)); }
 }
 
+/* On screen the print table is just a plain container. */
+.pf, .pf > tbody, .pf > tbody > tr, .pf-cell { display: block; width: 100%; }
+.pf { border-collapse: collapse; }
+.pf > thead, .pf > tfoot, .print-brand { display: none; }
+.pf-cell { padding: 0; }
+
 @media print {
+  @page { size: A4; margin: 0; }
+  .pf { display: table; width: 100%; }
+  .pf > thead { display: table-header-group; }
+  .pf > tfoot { display: table-footer-group; }
+  .pf > tbody { display: table-row-group; }
+  .pf > tbody > tr { display: table-row; }
+  .pf-cell { display: table-cell; padding: 0 16mm; }
+  .pf-band { height: 14mm; padding: 0; }
+  .print-brand { display: flex; align-items: center; gap: 12px; padding: 2mm 0 5mm; margin-bottom: 4mm; border-bottom: 1.5px solid #1f2a44; }
+  .pb-mark { width: 40px; height: 40px; flex: none; }
+  .pb-name { display: grid; line-height: 1.2; flex: 1; }
+  .pb-name b { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; color: #1f2a44; }
+  .pb-name span { font-size: 11px; color: #6f6b64; letter-spacing: 0.02em; }
+  .pb-date { font-size: 11px; color: #6f6b64; text-align: right; }
+  .link-btn, .hero .meta .pill-live + .mdot { display: none !important; }
+  .hero { padding-top: 6mm; }
   .bar, .msg-head .acts, .floating, .toast, .orphans, .no-print, .tools { display: none !important; }
   .hero, .page { max-width: none; padding-left: 0; padding-right: 0; }
   .msg.excluded { display: none; }
@@ -172,3 +194,7 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
   border: 1px solid var(--line); border-radius: 12px; position: sticky; bottom: 16px; box-shadow: var(--shadow); }
 .edited-tag { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 11px; color: var(--muted); background: var(--surface-2);
   border-radius: 999px; padding: 1px 8px; }
+
+.link-btn { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 0; color: var(--muted);
+  font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--text); }
