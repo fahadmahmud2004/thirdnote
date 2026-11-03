@@ -7,3 +7,6 @@ GUIDE-bn.md
 ._*
 .DS_Store
 store/upload-kit/
+promo-video/node_modules/
+promo-video/out/
+promo-video/public/score.wav
