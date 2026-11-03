@@ -350,11 +350,19 @@ function renderFull() {
   }
 }
 
+// Plain typed text keeps its line breaks; rich HTML lays itself out.
+const isPlain = (html) => !/<(p|div|li|ul|ol|pre|h[1-6]|table|blockquote|figure|math)\b/i.test(html || '');
+
 function renderMessage(sec, m) {
   const { body, failed } = messageBody(sec, m);
   body.dataset.mid = m.id;
-  const deletable = m.role === 'clip' || m.role === 'note';
+  if (m.role === 'user' && isPlain(m.html)) body.classList.add('plain');
+  const own = m.role === 'clip' || m.role === 'note';
+  const article = h('article', { class: `msg ${m.role}${m.excluded ? ' excluded' : ''}`, 'data-hidden': `· ${t('rd.hidden')}` });
   const acts = h('span', { class: 'acts' },
+    m.role === 'note'
+      ? h('button', { class: 'btn small ghost', onclick: () => editNote(article, body, m) }, ic('pencil', 14), t('rd.edit'))
+      : null,
     h('button', {
       class: 'btn small ghost',
       title: m.excluded ? null : t('rd.hideTip'),
@@ -363,23 +371,47 @@ function renderMessage(sec, m) {
         reload();
       },
     }, ic(m.excluded ? 'eye' : 'eyeOff', 14), m.excluded ? t('rd.show') : t('rd.hide')),
-    deletable
-      ? h('button', {
-          class: 'icon-btn small', title: t('common.delete'),
-          onclick: async () => {
-            if (!confirm(t('rd.confirmClip'))) return;
-            await rpc('deleteMessage', { id: m.id });
-            reload();
-          },
-        }, ic('trash', 14))
-      : null);
-  return h('article', { class: `msg ${m.role}${m.excluded ? ' excluded' : ''}`, 'data-hidden': `· ${t('rd.hidden')}` },
+    h('button', {
+      class: 'icon-btn small', title: t('common.delete'),
+      onclick: async () => {
+        if (!confirm(t(own ? 'rd.confirmClip' : 'rd.confirmMsg'))) return;
+        await rpc('deleteMessage', { id: m.id });
+        toast(t('toast.deleted'));
+        reload();
+      },
+    }, ic('trash', 14)));
+  article.append(
     h('div', { class: 'msg-head' },
       h('span', {}, roleLabel(sec.source, m)),
-      deletable ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
+      own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
       acts),
     body,
     failed.length ? orphanList(failed, t('rd.orphans')) : null);
+  return article;
+}
+
+// Swap a note's text for an editor in place.
+function editNote(article, body, m) {
+  const ta = h('textarea', { class: 'note-editor', rows: '5' });
+  ta.value = m.text;
+  const save = async () => {
+    const text = ta.value.trim();
+    if (!text) return ta.focus();
+    await rpc('updateMessage', { id: m.id, html: NM.textToHtml(text), text });
+    toast(t('toast.saved'));
+    reload();
+  };
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
+    if (e.key === 'Escape') reload();
+  });
+  const editor = h('div', { class: 'note-edit' }, ta,
+    h('div', { class: 'row' },
+      h('span', { class: 'faint grow', style: 'font-size:12px' }, '⌘/Ctrl + Enter'),
+      h('button', { class: 'btn small', onclick: () => reload() }, t('common.cancel')),
+      h('button', { class: 'btn small primary', onclick: save }, ic('check', 14), t('common.save'))));
+  body.replaceWith(editor);
+  ta.focus();
 }
 
 function orphanList(list, heading) {

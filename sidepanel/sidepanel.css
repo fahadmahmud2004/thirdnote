@@ -103,3 +103,24 @@ main { padding: 0 12px 48px; }
 
 .tagline { margin: 16px auto 0; font-size: 12px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
 .empty .tagline + h3 { margin-top: 6px; }
+
+/* Edit and delete */
+.icon-btn.danger:hover { color: var(--danger); }
+.coll-acts .icon-btn { flex: none; }
+.src .row-del { opacity: 0; transition: opacity .12s; margin: -4px -6px -4px 0; }
+.src:hover .row-del { opacity: 1; }
+.src:hover .count { display: none; }
+.hl { padding-right: 12px; }
+.hl-acts { position: absolute; top: 6px; right: 6px; display: flex; gap: 2px; opacity: 0; transition: opacity .12s;
+  background: var(--surface); border-radius: 9px; box-shadow: var(--shadow-sm); }
+.hl:hover .hl-acts { opacity: 1; }
+.hl-edit { cursor: default; display: grid; gap: 10px; }
+.hl-edit .text { -webkit-line-clamp: 3; }
+.hl-edit textarea { width: 100%; resize: vertical; background: var(--surface-2); border-color: transparent; }
+.hl-edit textarea:focus { background: var(--surface); }
+.dots { display: flex; gap: 4px; }
+.dot { width: 32px; height: 32px; border-radius: 9px; border: 0; background: transparent; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.dot::before { content: ""; width: 18px; height: 18px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); }
+.dot:hover { background: var(--hover); }
+.dot.on::before { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
+.edit-row { display: flex; align-items: center; gap: 6px; }

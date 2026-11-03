@@ -181,3 +181,14 @@ mark.nm-hl:hover { filter: saturate(1.4) brightness(0.97); }
   box-shadow: 0 10px 30px rgba(20, 18, 15, 0.3);
 }
 .toast .ic { color: #7fd4a2; }
+
+/* Printing and PDF export always use the light palette, whatever the theme. */
+@media print {
+  :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+    color-scheme: light;
+    --bg: #ffffff; --surface: #ffffff; --surface-2: #f3f1ec; --hover: #eeebe4; --text: #1d1c1a; --muted: #5f5b54; --faint: #8a857c;
+    --line: #dcd6cb; --line-strong: #cfc8bb; --ink: #1f2a44; --on-ink: #ffffff;
+    --mk-yellow: #fbe9a7; --mk-red: #fbd3cb; --mk-green: #cdebd6; --mk-blue: #d6e3fb;
+  }
+  html, body { background: #fff !important; }
+}

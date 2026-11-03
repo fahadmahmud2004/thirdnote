@@ -48,8 +48,10 @@ body { font-size: 15px; }
   color: var(--faint); margin-bottom: 8px; min-height: 28px; }
 .msg-head .acts { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; text-transform: none; letter-spacing: 0; }
 .msg:hover .acts, .msg.excluded .acts, .msg:focus-within .acts { opacity: 1; }
-.msg.user .msg-body { font-size: 17px; font-weight: 600; line-height: 1.5; letter-spacing: -0.005em; white-space: pre-wrap;
+.msg.user .msg-body { font-size: 17px; font-weight: 600; line-height: 1.5; letter-spacing: -0.005em;
   padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.msg.user .msg-body.plain { white-space: pre-wrap; }
+.msg.user .msg-body:not(.plain) { font-weight: 500; }
 .msg.assistant .msg-body { font-family: var(--serif); font-size: 17.5px; line-height: 1.75; }
 .msg.clip .msg-body, .msg.note .msg-body { padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
 .msg.note .msg-body { background: color-mix(in srgb, var(--sw-yellow) 10%, var(--surface)); }
@@ -153,6 +155,13 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
   .hero, .page { max-width: none; padding-left: 0; padding-right: 0; }
   .msg.excluded { display: none; }
   .msg-body pre { white-space: pre-wrap; }
+  .msg { break-inside: auto; }
+  .msg-head { break-after: avoid; }
+  .msg.user .msg-body { border-color: #dcd6cb; }
   mark.nm-hl, .hcard, .msg-body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .hcard { break-inside: avoid; }
 }
+
+.note-edit { display: grid; gap: 8px; }
+.note-edit textarea { width: 100%; resize: vertical; font-size: 15.5px; line-height: 1.6; padding: 12px 14px; border-radius: 14px; }
+.note-edit .row { display: flex; align-items: center; gap: 8px; }

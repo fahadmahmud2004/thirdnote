@@ -30,20 +30,40 @@
       return m ? { type: 'chat', id: m[1] } : null;
     },
     messageEls() {
-      return outermost([...document.querySelectorAll('[data-message-author-role]')])
+      // Older layout (still used on share pages): one element per message.
+      const old = outermost([...document.querySelectorAll('[data-message-author-role]')]);
+      if (old.length) {
+        return old
+          .map((el, i) => {
+            const author = el.getAttribute('data-message-author-role');
+            if (author !== 'user' && author !== 'assistant') return null;
+            return {
+              el,
+              role: author,
+              key: el.getAttribute('data-message-id') || `${author}-${i}`,
+              contentEl: el.querySelector('.markdown') || el.querySelector('.whitespace-pre-wrap') || el,
+            };
+          })
+          .filter(Boolean);
+      }
+      // Current layout: "units" whose key ends in :user or :assistant.
+      return outermost([...document.querySelectorAll('[data-content-search-unit-key]')])
         .map((el, i) => {
-          const author = el.getAttribute('data-message-author-role');
-          if (author !== 'user' && author !== 'assistant') return null;
-          return {
-            el,
-            role: author,
-            key: el.getAttribute('data-message-id') || `${author}-${i}`,
-            contentEl: el.querySelector('.markdown') || el.querySelector('.whitespace-pre-wrap') || el,
-          };
+          const unit = el.getAttribute('data-content-search-unit-key') || '';
+          const role = /:user$/.test(unit) ? 'user' : /:assistant$/.test(unit) ? 'assistant' : null;
+          if (!role) return null;
+          const answers = el.querySelectorAll('[data-markdown-text-style]');
+          const contentEl = role === 'user'
+            ? el.querySelector('[data-user-message-bubble] .whitespace-pre-wrap') || el.querySelector('[data-user-message-bubble]') || el
+            : answers.length === 1 ? answers[0] : el;
+          const id = el.querySelector('[data-chatgpt-selection-message-id]')?.getAttribute('data-chatgpt-selection-message-id');
+          return { el, role, key: id || unit || `${role}-${i}`, contentEl };
         })
         .filter(Boolean);
     },
-    isBusy: () => !!document.querySelector('[data-testid="stop-button"], .result-streaming'),
+    isBusy: () => !!document.querySelector(
+      '[data-testid="stop-button"], .result-streaming, [data-talvt-turn-state]:not([data-talvt-turn-state="complete"])',
+    ),
     title() {
       return cleanTitle(document.title.replace(/\s*[-|–]\s*ChatGPT\s*$/i, ''), ['chatgpt', 'new chat'], this.messageEls());
     },

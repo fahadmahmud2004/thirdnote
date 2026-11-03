@@ -2,7 +2,7 @@ const { rpc, COLORS, icon, t } = NM;
 
 const $ = (sel) => document.querySelector(sel);
 const main = $('#main');
-const view = { tab: 'library', color: null, query: '', chooser: false, composer: false, shot: null, open: new Set(), allSources: new Set() };
+const view = { editing: null, tab: 'library', color: null, query: '', chooser: false, composer: false, shot: null, open: new Set(), allSources: new Set() };
 let data = { topics: [], sources: [], highlights: [] };
 let settings = NM.DEFAULT_SETTINGS;
 let active = { topicId: null, on: false };
@@ -381,15 +381,48 @@ function renderCollection(topic, srcs) {
         h('div', { class: 'm' }, `${NM.count(srcs.length, 'sp.sources', 'sp.source1')} · ${NM.count(stars, 'sp.hls', 'sp.hl1')}`))),
     h('div', { class: 'coll-acts' },
       h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id, mode: 'review' }), disabled: !stars }, ic('cap', 14), t('sp.review')),
-      h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id }) }, ic('book', 14), t('common.open'))),
+      h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id }) }, ic('book', 14), t('common.open')),
+      h('button', { class: 'icon-btn small', title: t('common.rename'), onclick: () => renameTopic(topic) }, ic('pencil', 14)),
+      h('button', { class: 'icon-btn small danger', title: t('common.delete'), onclick: () => deleteTopic(topic) }, ic('trash', 14))),
     srcs.length ? h('div', { class: 'srcs' },
       ...shown.map((s) => h('div', { class: 'src', onclick: () => openReader({ source: s.id }) },
         badge(s),
         h('div', { class: 't' }, h('div', { class: 'n', title: sourceTitle(s) }, sourceTitle(s)), h('div', { class: 'm' }, sourceMeta(s))),
-        s.highlightCount ? h('span', { class: 'faint', style: 'font-size:12px' }, String(s.highlightCount)) : null)),
+        s.highlightCount ? h('span', { class: 'faint count', style: 'font-size:12px' }, String(s.highlightCount)) : null,
+        h('button', {
+          class: 'icon-btn small danger row-del',
+          title: t('common.delete'),
+          onclick: (e) => {
+            e.stopPropagation();
+            deleteSource(s);
+          },
+        }, ic('trash', 14)))),
       srcs.length > shown.length
         ? h('button', { class: 'more-srcs', onclick: () => { view.allSources.add(topic.id); renderList(); } }, `+${srcs.length - shown.length}`)
         : null) : null);
+}
+
+async function renameTopic(topic) {
+  const name = prompt(t('sp.renamePrompt'), topic.name);
+  if (!name || !name.trim() || name.trim() === topic.name) return;
+  await rpc('updateTopic', { id: topic.id, name });
+  toast(t('toast.renamed'));
+  load();
+}
+
+async function deleteTopic(topic) {
+  if (!confirm(t('sp.confirmTopic', { title: topic.name }))) return;
+  await rpc('deleteTopic', { id: topic.id });
+  if (active.topicId === topic.id) await NM.setActive({ topicId: null, on: false });
+  toast(t('toast.deleted'));
+  load();
+}
+
+async function deleteSource(src) {
+  if (!confirm(t('sp.confirmSource', { title: sourceTitle(src) }))) return;
+  await rpc('deleteSource', { id: src.id });
+  toast(t('toast.deleted'));
+  load();
 }
 
 function renderHighlights() {
@@ -406,7 +439,11 @@ function renderHighlights() {
   main.replaceChildren(...list.slice(0, 300).map((hl) => {
     const src = sources.get(hl.sourceId);
     const topic = topics.get(src?.topicId);
+    if (view.editing === hl.id) return editCard(hl);
     return h('article', { class: `hl bar-${hl.color}`, onclick: () => openReader({ source: hl.sourceId, hl: hl.id }) },
+      h('div', { class: 'hl-acts' },
+        h('button', { class: 'icon-btn small', title: t('common.edit'), onclick: (e) => { e.stopPropagation(); view.editing = hl.id; renderList(); } }, ic('pencil', 14)),
+        h('button', { class: 'icon-btn small danger', title: t('common.delete'), onclick: (e) => { e.stopPropagation(); deleteHighlight(hl); } }, ic('trash', 14))),
       hl.image ? h('img', { src: hl.image, alt: '' }) : null,
       hl.image ? null : h('div', { class: 'text' }, hl.text || ''),
       hl.note ? h('div', { class: 'note' }, ic('pencil', 12), h('span', {}, hl.note)) : null,
@@ -414,6 +451,48 @@ function renderHighlights() {
         h('span', { class: `swatch sw-${hl.color}` }),
         h('span', {}, `${NM.label(hl.color)} · ${topic ? topic.name : ''} · ${src ? sourceTitle(src) : t('sp.deleted')}`)));
   }));
+  main.querySelector('.hl-edit textarea')?.focus();
+}
+
+// A highlight card turned into an editor: colour, note, delete.
+function editCard(hl) {
+  let color = hl.color;
+  const ta = h('textarea', { rows: '3', placeholder: t('sp.notePh') });
+  ta.value = hl.note || '';
+  const dots = COLORS.map((c) => h('button', {
+    class: `dot${c.id === color ? ' on' : ''}`, style: `--c:${c.swatch}`, title: NM.label(c.id),
+    onclick: (e) => {
+      color = c.id;
+      e.currentTarget.parentElement.querySelectorAll('.dot').forEach((d) => d.classList.toggle('on', d === e.currentTarget));
+    },
+  }));
+  const close = () => { view.editing = null; renderList(); };
+  const save = async () => {
+    await rpc('updateHighlight', { id: hl.id, color, note: ta.value });
+    view.editing = null;
+    toast(t('toast.saved'));
+    load();
+  };
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
+    if (e.key === 'Escape') close();
+  });
+  return h('article', { class: `hl hl-edit bar-${hl.color}` },
+    hl.image ? h('img', { src: hl.image, alt: '' }) : h('div', { class: 'text' }, hl.text || ''),
+    h('div', { class: 'dots' }, ...dots), ta,
+    h('div', { class: 'edit-row' },
+      h('button', { class: 'btn small ghost danger', onclick: () => deleteHighlight(hl) }, ic('trash', 14), t('common.delete')),
+      h('span', { class: 'grow' }),
+      h('button', { class: 'btn small', onclick: close }, t('common.cancel')),
+      h('button', { class: 'btn small primary', onclick: save }, ic('check', 14), t('common.save'))));
+}
+
+async function deleteHighlight(hl) {
+  if (!confirm(t('sp.confirmHl'))) return;
+  await rpc('deleteHighlight', { id: hl.id });
+  view.editing = null;
+  toast(t('toast.deleted'));
+  load();
 }
 
 const ILLUSTRATION = `<svg class="illus" width="132" height="92" viewBox="0 0 132 92" fill="none" aria-hidden="true">
