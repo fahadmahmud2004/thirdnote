@@ -136,13 +136,21 @@
   }
 
   // Ordinary pages: highlights from every collection this page was clipped into.
-  async function loadPage() {
+  // Highlights from every collection this page was clipped into.
+  async function pageHighlights() {
     const sources = await call('getPageSources', { pageKey: pageKey() });
-    state.pageType = sources.length ? 'page' : null;
     const lists = await Promise.all(sources.map((s) => call('listHighlights', { sourceId: s.id })));
-    state.highlights = lists.flat();
+    return { sources, highlights: lists.flat() };
+  }
+
+  async function loadPage() {
+    const { sources, highlights } = await pageHighlights();
+    state.pageType = sources.length ? 'page' : null;
+    state.highlights = highlights;
     paint();
   }
+
+  const refresh = () => (onChat() ? loadSource() : loadPage());
 
   async function loadSource() {
     if (!onChat()) return loadPage();
@@ -151,7 +159,8 @@
     state.tracked = !!src?.tracked;
     state.total = src?.messageCount ?? null;
     if (!src) state.sent.clear();
-    state.highlights = src ? await call('listHighlights', { sourceId: state.sourceId }) : [];
+    // A saved chat shows its own highlights; an unsaved one shows clips taken from it.
+    state.highlights = src ? await call('listHighlights', { sourceId: state.sourceId }) : (await pageHighlights()).highlights;
     state.topic = src ? (await call('listTopics')).find((x) => x.id === src.topicId) || null : null;
     paint();
     renderPill();
@@ -160,7 +169,7 @@
   function onMessage(msg, sender, sendResponse) {
     if (msg?.type === 'nm-changed') {
       if (onChat()) {
-        if (!msg.sourceId || msg.sourceId === state.sourceId) loadSource().catch(() => {});
+        if (!msg.sourceId || msg.sourceId === state.sourceId || !state.tracked) loadSource().catch(() => {});
       } else if (msg.method !== 'syncMessages') {
         loadPage().catch(() => {});
       }
@@ -257,7 +266,7 @@
     if (!globalThis.CSS?.highlights || typeof Highlight === 'undefined') return;
     const groups = Object.fromEntries(COLORS.map((c) => [c.id, []]));
     if (state.highlights.length) {
-      if (!onChat()) {
+      if (!onChat() || !state.tracked) {
         const hs = state.highlights.filter((h) => h.pageQuote);
         NMAnchor.anchorAll(document.body, hs.map((h) => h.pageQuote)).forEach((r, i) => {
           if (r) groups[hs[i].color]?.push(r);
@@ -304,12 +313,14 @@
     const ancEl = anc.nodeType === Node.ELEMENT_NODE ? anc : anc.parentElement;
     if (ancEl?.closest('input, textarea, [contenteditable=""], [contenteditable="true"]')) return hideToolbar();
 
-    if (onChat()) {
+    if (onChat() && state.tracked) {
+      // A saved chat: the highlight lives inside the saved conversation.
       const msg = adapter.messageEls().find((m) => m.el.contains(anc));
       if (!msg) return hideToolbar();
       pending = { kind: 'chat', range: range.cloneRange(), msg };
     } else {
-      if (!settings.toolbarEverywhere) return hideToolbar();
+      // Anywhere else, including a chat that isn't saved: keep just the selection.
+      if (!onChat() && !settings.toolbarEverywhere) return hideToolbar();
       pending = { kind: 'page', range: range.cloneRange() };
     }
     showToolbar(range);
@@ -365,7 +376,7 @@
     if (src) return src;
     return call('trackSource', {
       id, kind: 'page', site: location.hostname, url: location.href.split('#')[0], pageKey: pageKey(),
-      title: document.title || location.hostname, topicId: topic.id, tracked: false,
+      title: (onChat() && adapter.title()) || document.title || location.hostname, topicId: topic.id, tracked: false,
     });
   }
 
@@ -380,7 +391,7 @@
       sourceId: src.id, html, text, color, note,
       pageQuote: bodyQuote && { exact: bodyQuote.exact, prefix: bodyQuote.prefix, suffix: bodyQuote.suffix },
     });
-    await loadPage();
+    await refresh();
     toast(t('toast.savedTo', { name: topic.name }), 'ok', color);
   }
 
@@ -511,7 +522,7 @@
           const src = await pageSourceFor(topic);
           await call('addClip', { sourceId: src.id, html, text, color: lastColor, note, image });
           close();
-          await loadPage();
+          await refresh();
           toast(t('toast.shotSaved', { name: topic.name }));
         } catch (err) {
           toast(err.message, 'error');

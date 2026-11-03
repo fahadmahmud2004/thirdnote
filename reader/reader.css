@@ -165,3 +165,10 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .note-edit { display: grid; gap: 8px; }
 .note-edit textarea { width: 100%; resize: vertical; font-size: 15.5px; line-height: 1.6; padding: 12px 14px; border-radius: 14px; }
 .note-edit .row { display: flex; align-items: center; gap: 8px; }
+
+.msg-body.editing { outline: 2px solid var(--focus); outline-offset: 6px; border-radius: 10px; cursor: text; }
+.msg-body.editing mark.nm-hl { cursor: text; }
+.edit-bar { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 10px 12px; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 12px; position: sticky; bottom: 16px; box-shadow: var(--shadow); }
+.edited-tag { text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 11px; color: var(--muted); background: var(--surface-2);
+  border-radius: 999px; padding: 1px 8px; }

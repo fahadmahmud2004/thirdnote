@@ -360,9 +360,10 @@ function renderMessage(sec, m) {
   const own = m.role === 'clip' || m.role === 'note';
   const article = h('article', { class: `msg ${m.role}${m.excluded ? ' excluded' : ''}`, 'data-hidden': `· ${t('rd.hidden')}` });
   const acts = h('span', { class: 'acts' },
-    m.role === 'note'
-      ? h('button', { class: 'btn small ghost', onclick: () => editNote(article, body, m) }, ic('pencil', 14), t('rd.edit'))
-      : null,
+    h('button', {
+      class: 'btn small ghost',
+      onclick: () => (m.role === 'note' ? editNote(article, body, m) : editRich(article, body, m)),
+    }, ic('pencil', 14), t('rd.edit')),
     h('button', {
       class: 'btn small ghost',
       title: m.excluded ? null : t('rd.hideTip'),
@@ -384,10 +385,38 @@ function renderMessage(sec, m) {
     h('div', { class: 'msg-head' },
       h('span', {}, roleLabel(sec.source, m)),
       own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
+      m.edited && m.role !== 'note' ? h('span', { class: 'edited-tag' }, t('rd.edited')) : null,
       acts),
     body,
     failed.length ? orphanList(failed, t('rd.orphans')) : null);
   return article;
+}
+
+// Edit a saved message in place: delete what you don't need, fix wording.
+// Formatting, math and code stay as they are.
+function editRich(article, body, m) {
+  body.contentEditable = 'true';
+  body.classList.add('editing');
+  const bar = h('div', { class: 'edit-bar' },
+    h('span', { class: 'faint grow', style: 'font-size:12.5px' }, t('rd.editHint')),
+    h('button', { class: 'btn small', onclick: () => reload() }, t('common.cancel')),
+    h('button', {
+      class: 'btn small primary',
+      onclick: async () => {
+        const copy = body.cloneNode(true);
+        copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
+        const html = NMSanitize.cleanHtml(copy.innerHTML);
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const text = NMSanitize.toText(tmp);
+        if (!text) return toast(t('rd.editEmpty'));
+        await rpc('updateMessage', { id: m.id, html, text });
+        toast(t('toast.saved'));
+        reload();
+      },
+    }, ic('check', 14), t('common.save')));
+  body.after(bar);
+  body.focus();
 }
 
 // Swap a note's text for an editor in place.
@@ -600,6 +629,10 @@ document.addEventListener('mouseup', (e) => {
     const range = sel.getRangeAt(0);
     const el = (n) => (n.nodeType === 1 ? n : n.parentElement);
     const startBody = el(range.startContainer)?.closest('.msg-body');
+    if (startBody?.isContentEditable) {
+      tb.hidden = true;
+      return;
+    }
     if (!startBody || startBody !== el(range.endContainer)?.closest('.msg-body')) {
       tb.hidden = true;
       return;
@@ -674,7 +707,7 @@ document.getElementById('pop-delete').addEventListener('click', async () => {
 
 mainEl.addEventListener('click', (e) => {
   const mark = e.target.closest('mark.nm-hl');
-  if (!mark || !getSelection().isCollapsed) return;
+  if (!mark || !getSelection().isCollapsed || mark.closest('[contenteditable="true"]')) return;
   openPopover(mark.dataset.hl, mark);
 });
 
