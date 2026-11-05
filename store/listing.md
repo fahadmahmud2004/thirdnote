@@ -8,7 +8,7 @@ Copy each part below into the matching field of the Chrome Web Store Developer D
 ThirdNote: AI Chat Notes & Highlighter
 
 **Summary** (comes from the manifest, max 132 characters)
-Highlight and save what you learn from ChatGPT, Claude, Gemini, YouTube and any website into collections you can review.
+Highlight and save what you learn from AI chats and any website, then review it as flashcards.
 
 **Homepage URL**
 https://fahadmahmud2004.github.io/thirdnote/ (developer site: https://fahadmahmud.com)
@@ -22,35 +22,35 @@ English
 **Description**
 
 ```
-ThirdNote turns what you read in AI chats and on the web into notes you can actually come back to.
+ThirdNote turns what you read in AI chats and on the web into notes you can come back to. Capture everything. Remember anything.
 
-Studying with ChatGPT, Claude or Gemini? Researching ideas on YouTube, Facebook or Google? Select any text, pick a colour, and it is saved into the collection you choose. Later, read it all in one clean place or quiz yourself with flashcards.
+Select any text, pick a colour, and it is saved into the collection you choose. Later, read it all in one clean place or test yourself with flashcards.
 
 HIGHLIGHT ANYWHERE
-- Select text on any website and pick a colour. Press 1, 2, 3 or 4 for speed.
-- Each colour has a meaning you choose: Key point, Important, Example, Idea, or your own.
+- Select text on any website and pick a colour, or press 1 to 4.
+- Name each colour for the way you work, such as Key point, Important, Example or Idea.
 - Add a short note or a question to any highlight.
-- Highlights reappear when you come back to the page.
+- Your highlights reappear when you return to the page.
 
-SAVE WHOLE AI CHATS
-- Works with ChatGPT, Claude and Gemini message by message, plus NotebookLM, DeepSeek, Perplexity, Grok, Copilot, Le Chat, Poe, Qwen, Kimi and Meta AI.
-- Press Save chat once. New messages are added automatically as you keep chatting.
-- Import shared chat links.
-- Math, code blocks and tables are kept.
+SAVE AI CHATS
+- Save a whole conversation from popular AI chat sites such as ChatGPT, Claude and Gemini with one click.
+- New messages are added automatically while you keep chatting.
+- Or select just the part you need and save only that.
+- Math, code and tables keep their formatting.
 
 COLLECTIONS
-- Group everything by subject, project or video idea.
-- Turn on Collecting and every save from any site goes straight into one collection.
-- Write your own notes into a collection.
+- Group everything by subject, project or idea.
+- Turn on Collecting and every save goes straight into one collection.
+- Write your own notes, and edit or trim anything you saved.
 
 SCREENSHOTS
-- Capture any area of the screen with Alt+Shift+S: a video frame, a chart, a post.
-- On YouTube the video timestamp is saved with it, with a link back to that moment.
+- Capture any area of the screen with Alt+Shift+S.
+- On YouTube, the video timestamp is saved with the screenshot.
 
 REVIEW
-- Read mode shows your saved chats like clean notes, with your highlights.
-- Highlights mode lists only what you marked.
-- Review mode turns highlights into flashcards: your question is the prompt, your highlight is the answer.
+- Read saved chats as clean notes with your highlights.
+- See only what you marked, filtered by colour.
+- Practise with flashcards: your question is the prompt, your highlight is the answer.
 - Export to Markdown or PDF.
 
 PRIVATE BY DESIGN
@@ -58,6 +58,8 @@ PRIVATE BY DESIGN
 - Download a backup any time.
 
 Light and dark themes. English and Bangla.
+
+Made by Fahad Mahmud (fahadmahmud.com).
 ```
 
 **Graphic assets** (all in `store/images/`)
