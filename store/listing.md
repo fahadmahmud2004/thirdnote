@@ -5,10 +5,10 @@ Copy each part below into the matching field of the Chrome Web Store Developer D
 ## Store listing tab
 
 **Name** (comes from the manifest)
-ThirdNote: AI Chat Notes & Highlighter
+ThirdNote: Capture Everything. Remember Anything.
 
 **Summary** (comes from the manifest, max 132 characters)
-Highlight and save what you learn from AI chats and any website, then review it as flashcards.
+Save highlights, screenshots and ideas from AI chats and any website. Organise them on a board and review as flashcards.
 
 **Homepage URL**
 https://fahadmahmud2004.github.io/thirdnote/ (developer site: https://fahadmahmud.com)
@@ -24,7 +24,7 @@ English
 ```
 ThirdNote turns what you read in AI chats and on the web into notes you can come back to. Capture everything. Remember anything.
 
-Select any text, pick a colour, and it is saved into the collection you choose. Later, read it all in one clean place or test yourself with flashcards.
+Select any text, pick a colour, and it is saved into the collection you choose. Grab screenshots that never get lost in your gallery again. Lay everything out on a board with your own sticky notes and ideas. Later, read it all in one clean place or test yourself with flashcards.
 
 HIGHLIGHT ANYWHERE
 - Select text on any website and pick a colour, or press 1 to 4.
@@ -41,11 +41,20 @@ SAVE AI CHATS
 COLLECTIONS
 - Group everything by subject, project or idea.
 - Turn on Collecting and every save goes straight into one collection.
-- Write your own notes, and edit or trim anything you saved.
+- Write your own notes with headings, lists, links, images and highlights.
+- Edit or trim anything you saved.
 
 SCREENSHOTS
 - Capture any area of the screen with Alt+Shift+S.
-- On YouTube, the video timestamp is saved with the screenshot.
+- Add a note and it goes straight into the right collection.
+- On video sites, the video timestamp is saved with the screenshot.
+
+BOARD
+- Every collection has its own canvas.
+- Your screenshots, clips, notes and saved chats appear as cards.
+- Move, resize and connect them with arrows.
+- Add sticky notes, headings, text and images (paste or drag them in).
+- Perfect for thumbnail ideas, research, mood boards and study maps.
 
 REVIEW
 - Read saved chats as clean notes with your highlights.
@@ -64,7 +73,7 @@ Made by Fahad Mahmud (fahadmahmud.com).
 
 **Graphic assets** (all in `store/images/`)
 - Store icon 128x128: `icons/icon128.png`
-- Screenshots 1280x800: `screenshot-1-highlight.png` to `screenshot-5-capture.png`
+- Screenshots 1280x800: `screenshot-1-highlight.png` to `screenshot-5-review.png`
 - Small promo tile 440x280: `promo-small-440x280.png`
 - Marquee promo tile 1400x560: `promo-marquee-1400x560.png`
 
@@ -73,7 +82,7 @@ Made by Fahad Mahmud (fahadmahmud.com).
 **Single purpose**
 
 ```
-ThirdNote lets users highlight and save text, AI chat conversations, notes and screenshots from web pages into local collections, and review them later.
+ThirdNote lets users highlight and save text, AI chat conversations, notes and screenshots from web pages into local collections, arrange them on a board, and review them later.
 ```
 
 **Permission justifications**
@@ -100,7 +109,7 @@ Adds "Save selection to ThirdNote" and "Capture an area to ThirdNote" to the rig
 
 Host permission (<all_urls>)
 ```
-Users study from many sites (AI chats, YouTube, Wikipedia, news, PDFs), so the highlight toolbar must work on any page the user selects text on. The content script only reads the text the user selects, or a chat the user explicitly chooses to save. The host permission is also required by chrome.tabs.captureVisibleTab for the screenshot feature, which runs only when the user asks for it.
+Users study from many sites (AI chats, video sites, encyclopedias, news, PDFs), so the highlight toolbar must work on any page the user selects text on. The content script only reads the text the user selects, or a chat the user explicitly chooses to save. The host permission is also required by chrome.tabs.captureVisibleTab for the screenshot feature, which runs only when the user asks for it.
 ```
 
 **Remote code**
