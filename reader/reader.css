@@ -2,7 +2,7 @@ body { font-size: 15px; }
 
 /* Top bar */
 .bar { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: saturate(1.6) blur(14px);
-  border-bottom: 1px solid var(--line); }
+  border-bottom: 1px solid var(--sep); }
 .bar-inner { max-width: 1040px; margin: 0 auto; padding: 10px 20px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
 .crumbs { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--muted); }
 .crumbs img { border-radius: 5px; flex: none; }
@@ -25,7 +25,7 @@ body { font-size: 15px; }
 
 /* Hero */
 .hero { max-width: 760px; margin: 0 auto; padding: 36px 20px 8px; }
-.hero h1 { margin: 0; font-size: 30px; line-height: 1.2; font-weight: 750; letter-spacing: -0.02em; outline: none; border-radius: 8px; padding: 2px 6px; margin-left: -6px; }
+.hero h1 { overflow-wrap: anywhere; margin: 0; font-size: 30px; line-height: 1.2; font-weight: 750; letter-spacing: -0.02em; outline: none; border-radius: 8px; padding: 2px 6px; margin-left: -6px; }
 .hero h1:hover, .hero h1:focus { background: var(--hover); }
 .hero .meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; font-size: 13px; color: var(--muted); }
 .hero .meta .mdot { width: 3px; height: 3px; border-radius: 50%; background: var(--faint); }
@@ -38,9 +38,9 @@ body { font-size: 15px; }
 .page { max-width: 760px; margin: 0 auto; padding: 18px 20px 140px; }
 
 /* Topic view: one section per source */
-.section-head { display: flex; align-items: center; gap: 10px; margin: 40px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.section-head { display: flex; align-items: flex-start; gap: 10px; margin: 40px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--sep); }
 .section-head:first-child { margin-top: 8px; }
-.section-head h2 { margin: 0; font-size: 17px; font-weight: 700; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.section-head h2 { margin: 0; font-size: 17px; font-weight: 700; flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.35; }
 
 /* Messages */
 .msg { margin: 0 0 26px; position: relative; }

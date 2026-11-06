@@ -33,7 +33,7 @@ HIGHLIGHT ANYWHERE
 - Your highlights reappear when you return to the page.
 
 SAVE AI CHATS
-- Save a whole conversation from popular AI chat sites such as ChatGPT, Claude and Gemini with one click.
+- Save a whole AI chat conversation with one click.
 - New messages are added automatically while you keep chatting.
 - Or select just the part you need and save only that.
 - Math, code and tables keep their formatting.
