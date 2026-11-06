@@ -170,84 +170,97 @@ def sub(at, m, dur, gain=0.22):
     put(dry, at, s, gain)
 
 
-# ---- 1. Flood: rising unease, every line lands with a low thump ----------
-FL, MK, LG = AT['flood'], AT['mark'], AT['logo']
-t = t_(sec(MK))
-drone = (np.sin(2 * np.pi * 55 * t) + 0.4 * np.sin(2 * np.pi * 58.3 * t)) * np.minimum(1, t / 2) * 0.12
+# ---- 1. Roll: a fast, nervous pulse that keeps speeding up -----------------
+RO, LO, SN = AT['roll'], AT['lost'], AT['snap']
+t = t_(sec(LO))
+drone = (np.sin(2 * np.pi * 55 * t) + 0.4 * np.sin(2 * np.pi * 58.3 * t)) * np.minimum(1, t / 1.5) * 0.12
 put(dry, 0, flt(drone, 'lowpass', 300))
-noise = flt(rng.standard_normal(len(t)), 'bandpass', [400, 3000]) * (t / sec(MK)) ** 2 * 0.12
-put(wet, 0, noise)
-rate = 2.0
 x = 0.0
-while x < sec(MK) - 0.3:
-    tick(x, 0.08 + 0.12 * x / sec(MK), f=2800 + rng.uniform(-300, 600))
-    rate = 2 + 14 * (x / sec(MK)) ** 2
-    x += 1 / rate
-for i, at in enumerate(cue('flood', 'lines')):
-    thump(at, 0.45 + i * 0.08)
-    piano(at + 0.02, [57, 55, 53, 52][i], 0.1)
-scatter(sec(FL + 210), 1.0, 0.35)
+while x < sec(RO + 112):
+    tick(x, 0.07 + 0.1 * x / sec(RO + 112), f=2600 + rng.uniform(-300, 700))
+    x += 1 / (3 + 13 * (x / sec(RO + 112)) ** 1.6)
+for b in range(int(sec(RO + 112) / 0.5)):
+    kick(b * 0.5, 0.32 + 0.1 * b / 7)
+for i, at in enumerate(cue('roll', 'pops')):
+    thump(at, 0.45)
+    piano(at, [64, 67, 71, 74][i], 0.14, 1.6)
+for at in cue('roll', 'keys'):
+    click(at, 0.2)
+for at in cue('roll', 'fail'):
+    thump(at, 0.7)
+    for k, m in enumerate([47, 50, 53]):
+        piano(at + k * 0.01, m, 0.12, 1.4)
 
-# ---- 2. Mark: everything stops; one line gets highlighted ------------------
-piano(sec(MK), 69, 0.16, 4.0)
-piano(sec(MK) + 0.01, 57, 0.08, 4.0)
-for at in cue('mark', 'swish'):
-    swish(at, 0.7, 0.6)
-piano(sec(MK + 52), 76, 0.12, 3.0)
-riser(sec(LG), 1.3, 0.3)
+# ---- 2. Lost: hush, typing, then a whoosh and the word "Gone." --------------
+for at in cue('lost', 'type'):
+    click(at, 0.16)
+piano(sec(LO), 69, 0.08, 3.0)
+for at in cue('lost', 'whoosh'):
+    swish(at, 0.7, 0.9)
+    scatter(at + 0.2, 1.0, 0.3)
+for at in cue('lost', 'gone'):
+    piano(at, 57, 0.14, 3.0)
+    piano(at + 0.01, 64, 0.1, 3.0)
+riser(sec(SN), 1.2, 0.32)
 
-# ---- 3. Logo: a note for every piece that lands -----------------------------
-thump(sec(LG), 0.6)
-pad(sec(LG), [48, 55, 60, 64, 67, 71], sec(AT['highlight'] - LG) + 0.4, 0.07, 0.3)
-for i, at in enumerate(cue('logo', 'build')):
-    piano(at + sec(6), [60, 64, 67, 71][i], 0.15, 3.0)
-piano(sec(LG + 44), 76, 0.12, 3.0)
-for at in cue('logo', 'swish'):
+# ---- 3. Snap: everything clicks into place, then the logo -------------------
+thump(sec(SN), 0.7)
+for at in cue('snap', 'snap'):
+    for k in range(18):
+        tick(at + 0.3 + k * 0.035, 0.18, f=1800 + k * 120)
+for at in cue('snap', 'land'):
+    thump(at, 0.5)
+pad(sec(SN), [48, 55, 60, 64, 67, 71], sec(AT['capture'] - SN) + 0.4, 0.07, 0.3)
+for i, at in enumerate(cue('snap', 'build')):
+    piano(at, [60, 64, 67, 71][i], 0.15, 3.0)
+for at in cue('snap', 'swish'):
     swish(at, 0.55)
+    piano(at, 76, 0.12, 3.0)
 
-# ---- 4-9. The groove under the chapters: 120 bpm, a beat is 15 frames -------
-BEAT = 0.5
-start, stop = sec(AT['highlight']), sec(AT['extras'])
-prog = [  # (bass root, e-piano voicing)
-    (41, [57, 60, 64, 67]),  # Fmaj9-ish
-    (43, [59, 62, 65, 69]),  # G6/9
-    (40, [55, 59, 62, 67]),  # Em7
-    (45, [60, 64, 67, 71]),  # Am(add9)
-]
+# ---- 4-8. The groove under the chapters: 124 bpm ----------------------------
+BEAT = 60 / 124
+start, stop = sec(AT['capture']), sec(AT['hits'])
+prog = [(41, [57, 60, 64, 67]), (43, [59, 62, 65, 69]), (40, [55, 59, 62, 67]), (45, [60, 64, 67, 71])]
 kicks = []
 beats = int(round((stop - start) / BEAT))
 for b in range(beats):
     at = start + b * BEAT
-    bar = b // 4
-    root, voicing = prog[bar % 4]
+    root, voicing = prog[(b // 4) % 4]
     if b % 4 in (0, 2) or (b % 8 == 7):
-        kick(at, 0.5)
+        kick(at, 0.52)
         kicks.append(at)
     if b % 4 in (1, 3):
-        snap(at)
+        snap(at, 0.24)
     for s16 in range(4):
-        shaker(at + s16 * BEAT / 4, 0.04 if s16 % 2 else 0.06)
+        shaker(at + s16 * BEAT / 4, 0.045 if s16 % 2 else 0.065)
     if b % 4 == 0:
         sub(at, root, BEAT * 3.6)
         for k, m in enumerate(voicing):
             epiano(at + k * 0.012, m, 0.06)
-    if b % 4 == 2:
-        epiano(at + BEAT / 2, voicing[-1] + 12, 0.045)
+    if b % 2 == 1:
+        epiano(at + BEAT / 2, voicing[(b // 2) % 4] + 12, 0.04)
     if b % 8 == 0:
         pad(at, voicing, 8 * BEAT, 0.035, 0.4)
 
-for scene in ('highlight', 'chats', 'collect', 'capture', 'read', 'review'):
+for scene in ('capture', 'highlight', 'board', 'write', 'review'):
     at = sec(AT[scene])
-    riser(at, 0.5, 0.12)
-    for s in cue(scene, 'swish'):
-        swish(s, 0.45)
+    riser(at, 0.45, 0.14)
+    swish(at - 0.15, 0.4, 0.35)  # the marker wipe
+    for s_ in cue(scene, 'swish'):
+        swish(s_, 0.4)
     for c in cue(scene, 'click'):
         click(c, 0.4)
+for at in cue('board', 'land'):
+    thump(at, 0.3)
+    tick(at, 0.18, 2200)
+for at in cue('board', 'pop') + cue('write', 'pop'):
+    piano(at, 79, 0.1, 1.2)
+for at in cue('board', 'draw'):
+    swish(at, 0.25, 0.4)
 for at in cue('review', 'flip'):
     swish(at - 0.1, 0.3, 0.3)
-riser(stop, 1.0, 0.25)
+riser(stop, 0.9, 0.25)
 
-# Duck the music under each kick so it breathes.
 duck = np.ones(N)
 for k in kicks:
     i, n = int(k * SR), int(0.25 * SR)
@@ -255,16 +268,16 @@ for k in kicks:
     duck[i:j] = np.minimum(duck[i:j], 1 - 0.45 * np.exp(-np.arange(j - i) / SR / 0.08))
 music *= duck[:, None]
 
-# ---- 10. Quick hits ---------------------------------------------------------
+# ---- 9. Quick hits ------------------------------------------------------------
 hits = [(53, [65, 69, 72, 76]), (55, [67, 71, 74, 79]), (57, [69, 72, 76, 79]), (48, [64, 67, 72, 76])]
-for (root, ch), at in zip(hits, cue('extras', 'hits')):
-    thump(at, 0.45)
+for (root, ch), at in zip(hits, cue('hits', 'hits')):
+    thump(at, 0.5)
     sub(at, root - 12, 0.9, 0.18)
     for k, m in enumerate(ch):
         piano(at + k * 0.03, m, 0.09, 1.6)
 riser(sec(AT['end']), 0.9, 0.22)
 
-# ---- 11. End: a warm resolve --------------------------------------------------
+# ---- 10. End: a warm resolve ---------------------------------------------------
 E = AT['end']
 thump(sec(E), 0.5)
 pad(sec(E), [36, 48, 55, 60, 64, 67, 71], sec(TOTAL - E) + 0.3, 0.08, 0.4)

@@ -301,3 +301,59 @@ export const Chip: React.FC<{p: number; children: React.ReactNode; dot?: string;
     {children}
   </div>
 );
+
+/* ---- Motion helpers ---------------------------------------------------- */
+
+// Text typed out one character at a time from frame `start`.
+export const typed = (f: number, text: string, start: number, cps = 1.4) =>
+  text.slice(0, Math.max(0, Math.min(text.length, Math.floor((f - start) * cps))));
+
+// A blinking text caret.
+export const Caret: React.FC<{f: number; color?: string; h?: number}> = ({f, color = C.ink, h = 1}) => (
+  <span style={{display: 'inline-block', width: 3, height: `${h}em`, background: color, marginLeft: 3, verticalAlign: '-0.12em', opacity: Math.floor(f / 8) % 2 ? 0.15 : 1}} />
+);
+
+// Words that rise in one after another.
+export const Words: React.FC<{f: number; start: number; text: string; gap?: number; style?: React.CSSProperties; mark?: string; markAt?: number}> = ({
+  f,
+  start,
+  text,
+  gap = 4,
+  style,
+  mark,
+  markAt = 0,
+}) => (
+  <span style={style}>
+    {text.split(' ').map((w, i) => {
+      const p = ramp(f, start + i * gap, 16);
+      const isMark = mark && w.replace(/[.,!?]/g, '') === mark;
+      return (
+        <span key={i} style={{display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', padding: '0.1em 0.04em 0.18em', margin: '-0.1em 0 -0.18em'}}>
+          <span style={{display: 'inline-block', transform: `translateY(${(1 - p) * 105}%) rotate(${(1 - p) * 6}deg)`, opacity: Math.min(1, p * 2)}}>
+            {isMark ? <Marker p={ramp(f, markAt, 18)}>{w}</Marker> : w}
+            {i < text.split(' ').length - 1 ? ' ' : ''}
+          </span>
+        </span>
+      );
+    })}
+  </span>
+);
+
+// A springy 0..1..(overshoot)..1 for things that land.
+export const pop = (f: number, start: number, dur = 16) => {
+  const t = Math.max(0, Math.min(1, (f - start) / dur));
+  if (t <= 0) return 0;
+  return 1 + Math.sin(t * Math.PI * 1.5) * Math.exp(-t * 4) * 0.35 - (1 - t) ** 3;
+};
+
+// A diagonal marker band that sweeps across a cut between scenes.
+export const Wipe: React.FC<{color?: string}> = ({color = C.marker}) => {
+  const f = useCurrentFrame();
+  const x = interpolate(f, [0, 9, 10, 20], [-140, 0, 0, 140], {...clamp, easing: expoOut});
+  if (f > 20) return null;
+  return (
+    <div style={{position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 50}}>
+      <div style={{position: 'absolute', top: '-20%', bottom: '-20%', left: '-30%', width: '160%', background: color, transform: `translateX(${x}%) skewX(-14deg)`}} />
+    </div>
+  );
+};
