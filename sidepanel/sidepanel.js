@@ -153,29 +153,33 @@ function renderCollect() {
   if (view.shot) children.push(renderShot());
   if (view.chooser) children.push(renderChooser());
   box.replaceChildren(...children);
-  box.querySelector('.composer textarea')?.focus();
+  box.querySelector('.composer-area')?.focus();
 }
 
 function renderComposer() {
-  const ta = h('textarea', { placeholder: t('sp.notePlaceholder') });
-  const saveNote = async () => {
-    const text = ta.value.trim();
-    if (!text) return ta.focus();
-    const topic = await ensureTopic();
-    if (!topic) return;
-    await rpc('addNote', { topicId: topic.id, html: NM.textToHtml(text), text });
+  const area = h('div', { class: 'composer-area' });
+  const editor = NMEditor.make(area, { placeholder: t('sp.notePlaceholder') });
+  const close = () => {
+    NMEditor.hideBar();
     view.composer = false;
-    toast(t('toast.noteSaved', { name: topic.name }));
     renderCollect();
   };
-  ta.addEventListener('keydown', (e) => {
+  const saveNote = async () => {
+    if (editor.isEmpty()) return editor.focus();
+    const topic = await ensureTopic();
+    if (!topic) return;
+    await rpc('addNote', { topicId: topic.id, html: editor.html(), text: editor.text() });
+    toast(t('toast.noteSaved', { name: topic.name }));
+    close();
+  };
+  area.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) saveNote();
-    if (e.key === 'Escape') { view.composer = false; renderCollect(); }
+    if (e.key === 'Escape') close();
   });
-  return h('div', { class: 'composer' }, ta,
+  return h('div', { class: 'composer' }, area,
     h('div', { class: 'row' },
       h('span', { class: 'kbd-hint grow' }, '⌘/Ctrl + Enter'),
-      h('button', { class: 'btn small', onclick: () => { view.composer = false; renderCollect(); } }, t('common.cancel')),
+      h('button', { class: 'btn small', onclick: close }, t('common.cancel')),
       h('button', { class: 'btn small primary', onclick: saveNote }, ic('check', 14), t('sp.saveNote'))));
 }
 
@@ -380,8 +384,9 @@ function renderCollection(topic, srcs) {
         h('div', { class: 'n' }, h('span', {}, topic.name), isActive ? h('span', { class: 'tag' }, t('sp.collectingInto')) : null),
         h('div', { class: 'm' }, `${NM.count(srcs.length, 'sp.sources', 'sp.source1')} · ${NM.count(stars, 'sp.hls', 'sp.hl1')}`))),
     h('div', { class: 'coll-acts' },
-      h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id, mode: 'review' }), disabled: !stars }, ic('cap', 14), t('sp.review')),
       h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id }) }, ic('book', 14), t('common.open')),
+      h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id, mode: 'board' }) }, ic('board', 14), t('sp.board')),
+      h('button', { class: 'btn small', onclick: () => openReader({ topic: topic.id, mode: 'review' }), disabled: !stars }, ic('cap', 14), t('sp.review')),
       h('button', { class: 'icon-btn small', title: t('common.rename'), onclick: () => renameTopic(topic) }, ic('pencil', 14)),
       h('button', { class: 'icon-btn small danger', title: t('common.delete'), onclick: () => deleteTopic(topic) }, ic('trash', 14))),
     srcs.length ? h('div', { class: 'srcs' },

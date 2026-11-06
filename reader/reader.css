@@ -12,14 +12,14 @@ body { font-size: 15px; }
 .bar-right { display: flex; justify-content: flex-end; gap: 6px; }
 
 .menu-wrap { position: relative; }
-.menu { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+.menu { position: absolute; right: 0; top: calc(100% + 6px); background: var(--surface); border: 0; border-radius: 14px;
   padding: 6px; min-width: 230px; box-shadow: var(--shadow); z-index: 30; }
 .menu button, .menu label { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 9px 10px;
   border-radius: 9px; cursor: pointer; font-size: 13px; color: var(--text); }
 .menu button .ic { color: var(--muted); }
 .menu button:hover { background: var(--hover); }
 .menu .danger, .menu .danger .ic { color: var(--danger); }
-.menu .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+.menu .sep { height: 1px; background: var(--sep); margin: 4px 6px; }
 .menu .menu-label { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); padding: 8px 10px 4px; }
 .menu .menu-scroll { max-height: 260px; overflow: auto; }
 
@@ -49,11 +49,11 @@ body { font-size: 15px; }
 .msg-head .acts { margin-left: auto; display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s; text-transform: none; letter-spacing: 0; }
 .msg:hover .acts, .msg.excluded .acts, .msg:focus-within .acts { opacity: 1; }
 .msg.user .msg-body { font-size: 17px; font-weight: 600; line-height: 1.5; letter-spacing: -0.005em;
-  padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+  padding: 14px 18px; background: var(--surface); border: 0; border-radius: 16px; }
 .msg.user .msg-body.plain { white-space: pre-wrap; }
 .msg.user .msg-body:not(.plain) { font-weight: 500; }
 .msg.assistant .msg-body { font-family: var(--serif); font-size: 17.5px; line-height: 1.75; }
-.msg.clip .msg-body, .msg.note .msg-body { padding: 14px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.msg.clip .msg-body, .msg.note .msg-body { padding: 14px 18px; background: var(--surface); border: 0; border-radius: 16px; }
 .msg.note .msg-body { background: color-mix(in srgb, var(--sw-yellow) 10%, var(--surface)); }
 .msg.excluded .msg-body { display: none; }
 .msg.excluded .msg-head::after { content: attr(data-hidden); text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 4px; }
@@ -69,7 +69,7 @@ body { font-size: 15px; }
 .msg-body code { font-family: var(--mono); font-size: 0.86em; }
 .msg-body :not(pre) > code { background: var(--surface-2); padding: 2px 6px; border-radius: 6px; }
 .msg-body table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; font-family: var(--font); font-size: 14px; }
-.msg-body th, .msg-body td { border: 1px solid var(--line); padding: 7px 11px; text-align: left; vertical-align: top; }
+.msg-body th, .msg-body td { border: 1px solid var(--sep); padding: 7px 11px; text-align: left; vertical-align: top; }
 .msg-body th { background: var(--surface-2); }
 .msg-body blockquote { margin: 0 0 0.9em; padding-left: 16px; border-left: 3px solid var(--line-strong); color: var(--muted); }
 .msg-body img { max-width: 100%; height: auto; border-radius: 12px; display: block; }
@@ -80,17 +80,17 @@ body { font-size: 15px; }
 mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .orphans { margin-top: 10px; font-size: 13px; color: var(--muted); }
-.orph { position: relative; padding: 8px 12px 8px 15px; margin-top: 6px; cursor: pointer; background: var(--surface); border: 1px solid var(--line);
+.orph { position: relative; padding: 8px 12px 8px 15px; margin-top: 6px; cursor: pointer; background: var(--surface); border: 0;
   border-radius: 10px; white-space: pre-line; overflow: hidden; }
-.orph::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bar, var(--line)); }
+.orph::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bar, var(--sep)); }
 
 /* Highlight cards */
 .tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
 .cue { margin: 26px 0 10px; font-size: 14px; font-weight: 650; color: var(--muted); display: flex; gap: 8px; }
 .cue .ic { margin-top: 2px; flex: none; }
 .cue:first-of-type { margin-top: 6px; }
-.hcard { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 12px 19px; margin-bottom: 10px; overflow: hidden; }
-.hcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bar, var(--line)); }
+.hcard { position: relative; background: var(--surface); border: 0; border-radius: 14px; padding: 14px 16px 12px 19px; margin-bottom: 10px; overflow: hidden; }
+.hcard::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--bar, var(--sep)); }
 .hcard .text { font-family: var(--serif); font-size: 16.5px; line-height: 1.65; white-space: pre-line; }
 .hcard img { max-width: 100%; border-radius: 10px; display: block; border: 1px solid var(--line); }
 .hcard .note { margin-top: 8px; font-size: 13.5px; color: var(--muted); display: flex; gap: 7px; }
@@ -102,12 +102,12 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .progress { flex: 1; height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
 .progress > div { height: 100%; background: var(--ink); border-radius: 999px; transition: width 0.25s; }
 .deck-count { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.card.flash { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); padding: 30px 32px 26px;
+.card.flash { background: var(--surface); border: 0; border-radius: 22px; box-shadow: var(--shadow); padding: 30px 32px 26px;
   min-height: 320px; display: flex; flex-direction: column; animation: cardIn 0.22s ease-out; }
 @keyframes cardIn { from { opacity: 0; transform: translateY(10px) scale(0.99); } to { opacity: 1; transform: none; } }
 .flash .kind { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .flash .prompt { font-size: 21px; font-weight: 700; line-height: 1.4; letter-spacing: -0.01em; margin: 14px 0 0; }
-.flash .divider { height: 1px; background: var(--line); margin: 22px 0; }
+.flash .divider { height: 1px; background: var(--sep); margin: 22px 0; }
 .flash .answer { font-family: var(--serif); font-size: 18px; line-height: 1.7; white-space: pre-line; }
 .flash .answer img { max-width: 100%; border-radius: 12px; display: block; }
 .flash .answer .note { font-family: var(--font); font-size: 14px; color: var(--muted); margin-top: 12px; }
@@ -126,7 +126,7 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .done .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
 /* Floating toolbar and popover */
-.floating { position: fixed; z-index: 50; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 6px;
+.floating { position: fixed; z-index: 50; background: var(--surface); border: 0; border-radius: 14px; padding: 6px;
   box-shadow: var(--shadow); display: grid; gap: 6px; }
 .floating .row { display: flex; gap: 2px; align-items: center; }
 .floating .row.end { justify-content: flex-end; gap: 6px; }
@@ -137,7 +137,7 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .dot:hover { background: var(--hover); }
 .dot:hover::before { transform: scale(1.12); }
 .dot.on::before { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
-.tb .sep { width: 1px; height: 22px; background: var(--line); margin: 0 3px; }
+.tb .sep { width: 1px; height: 22px; background: var(--sep); margin: 0 3px; }
 
 @media (max-width: 720px) {
   .bar-inner { grid-template-columns: 1fr auto; padding: 8px 16px; }

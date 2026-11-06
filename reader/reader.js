@@ -1,10 +1,12 @@
+import { mountBoard } from './board.js';
+
 const { rpc, COLORS, icon, t } = NM;
 
 const params = new URLSearchParams(location.search);
 const st = {
   kind: params.has('topic') ? 'topic' : 'source',
   id: params.get('topic') || params.get('source'),
-  mode: ['full', 'highlights', 'review'].includes(params.get('mode')) ? params.get('mode') : 'full',
+  mode: ['full', 'highlights', 'review', 'board'].includes(params.get('mode')) ? params.get('mode') : 'full',
   focus: params.get('hl'),
   color: null,
   topic: null,
@@ -133,7 +135,14 @@ function render() {
     mainEl.replaceChildren(h('div', { class: 'empty' }, h('h3', {}, t('rd.notFound')), h('p', {}, t('rd.notFoundText'))));
     return;
   }
+  if (st.mode === 'board' && st.kind !== 'topic') st.mode = 'full';
   renderBar();
+  document.body.classList.toggle('mode-board', st.mode === 'board');
+  if (st.mode !== 'board' && board) {
+    board.destroy();
+    board = null;
+  }
+  if (st.mode === 'board') return renderBoard();
   renderHero();
   if (st.mode === 'full') renderFull();
   else if (st.mode === 'highlights') renderHighlightList();
@@ -148,13 +157,15 @@ function renderBar() {
     crumbs.append(src ? h('a', { href: readerUrl({ topic: st.topic.id }) }, st.topic.name) : h('span', {}, st.topic.name));
   }
 
+  const modes = [['full', 'book', 'rd.read'], ['highlights', 'highlighter', 'rd.highlights'], ['review', 'cap', 'rd.review']];
+  if (st.kind === 'topic') modes.splice(2, 0, ['board', 'board', 'rd.board']);
   const seg = h('div', { class: 'seg' },
-    ...[['full', 'book', 'rd.read'], ['highlights', 'highlighter', 'rd.highlights'], ['review', 'cap', 'rd.review']].map(([m, i, k]) =>
+    ...modes.map(([m, i, k]) =>
       h('button', { class: st.mode === m ? 'on' : '', onclick: () => setMode(m) }, ic(i, 15), t(k))));
 
   const exportMenu = menu(h('span', {}, ic('download', 15), t('rd.export')), [
     h('button', { onclick: exportMarkdown }, ic('download', 15), t('rd.exportMd')),
-    h('button', { onclick: () => print() }, ic('book', 15), t('rd.exportPdf')),
+    h('button', { onclick: printPdf }, ic('book', 15), t('rd.exportPdf')),
   ]);
 
   const moreItems = [];
@@ -300,6 +311,41 @@ function setColor(color) {
 }
 
 // ---------------------------------------------------------------------------
+// Board
+
+let board = null;
+let boardTopic = null;
+
+function renderBoard() {
+  heroEl.replaceChildren();
+  document.title = `${st.topic?.name || ''} · ThirdNote`;
+  document.body.style.setProperty('--bar-h', `${barEl.offsetHeight}px`);
+  if (board && boardTopic === st.topic.id) {
+    board.update(st.sections);
+    return;
+  }
+  board?.destroy();
+  boardTopic = st.topic.id;
+  board = mountBoard({
+    container: mainEl,
+    topic: st.topic,
+    sections: st.sections,
+    badge,
+    toast,
+    openReader: (p) => window.open(readerUrl(p), '_blank'),
+    reloadData: () => reload(),
+  });
+}
+
+// PDF export prints the reading view, even from the board.
+function printPdf() {
+  if (st.mode === 'board') {
+    setMode('full');
+    setTimeout(() => print(), 300);
+  } else print();
+}
+
+// ---------------------------------------------------------------------------
 // Read
 
 function markFor(hl) {
@@ -407,14 +453,15 @@ function renderMessage(sec, m) {
 // Edit a saved message in place: delete what you don't need, fix wording.
 // Formatting, math and code stay as they are.
 function editRich(article, body, m) {
-  body.contentEditable = 'true';
   body.classList.add('editing');
+  NMEditor.make(body, { images: true });
   const bar = h('div', { class: 'edit-bar' },
     h('span', { class: 'faint grow', style: 'font-size:12.5px' }, t('rd.editHint')),
-    h('button', { class: 'btn small', onclick: () => reload() }, t('common.cancel')),
+    h('button', { class: 'btn small', onclick: () => { NMEditor.hideBar(); reload(); } }, t('common.cancel')),
     h('button', {
       class: 'btn small primary',
       onclick: async () => {
+        NMEditor.hideBar();
         const copy = body.cloneNode(true);
         copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
         const html = NMSanitize.cleanHtml(copy.innerHTML);
@@ -431,28 +478,31 @@ function editRich(article, body, m) {
   body.focus();
 }
 
-// Swap a note's text for an editor in place.
+// Swap a note for a rich editor in place.
 function editNote(article, body, m) {
-  const ta = h('textarea', { class: 'note-editor', rows: '5' });
-  ta.value = m.text;
+  const area = h('div', { class: 'note-editor' });
+  const editor = NMEditor.make(area, { html: m.html, placeholder: t('sp.notePlaceholder') });
   const save = async () => {
-    const text = ta.value.trim();
-    if (!text) return ta.focus();
-    await rpc('updateMessage', { id: m.id, html: NM.textToHtml(text), text });
+    if (editor.isEmpty()) return editor.focus();
+    await rpc('updateMessage', { id: m.id, html: editor.html(), text: editor.text() });
+    NMEditor.hideBar();
     toast(t('toast.saved'));
     reload();
   };
-  ta.addEventListener('keydown', (e) => {
+  area.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
-    if (e.key === 'Escape') reload();
+    if (e.key === 'Escape') {
+      NMEditor.hideBar();
+      reload();
+    }
   });
-  const editor = h('div', { class: 'note-edit' }, ta,
+  const wrap = h('div', { class: 'note-edit' }, area,
     h('div', { class: 'row' },
-      h('span', { class: 'faint grow', style: 'font-size:12px' }, '⌘/Ctrl + Enter'),
-      h('button', { class: 'btn small', onclick: () => reload() }, t('common.cancel')),
+      h('span', { class: 'faint grow', style: 'font-size:12px' }, t('ed.tips')),
+      h('button', { class: 'btn small', onclick: () => { NMEditor.hideBar(); reload(); } }, t('common.cancel')),
       h('button', { class: 'btn small primary', onclick: save }, ic('check', 14), t('common.save'))));
-  body.replaceWith(editor);
-  ta.focus();
+  body.replaceWith(wrap);
+  editor.focus();
 }
 
 function orphanList(list, heading) {
@@ -875,7 +925,7 @@ chrome.runtime.onMessage.addListener((msg) => {
   if (st.mode === 'review') return; // don't reshuffle a running session
   clearTimeout(dirtyTimer);
   const tryReload = () => {
-    const busy = !pop.hidden || !tb.hidden || !getSelection().isCollapsed || document.activeElement?.isContentEditable;
+    const busy = !pop.hidden || !tb.hidden || (st.mode !== 'board' && !getSelection().isCollapsed) || document.activeElement?.isContentEditable || board?.isBusy();
     if (busy) dirtyTimer = setTimeout(tryReload, 1500);
     else reload();
   };
