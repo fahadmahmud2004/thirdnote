@@ -165,7 +165,8 @@ function renderBar() {
 
   const exportMenu = menu(h('span', {}, ic('download', 15), t('rd.export')), [
     h('button', { onclick: exportMarkdown }, ic('download', 15), t('rd.exportMd')),
-    h('button', { onclick: printPdf }, ic('book', 15), t('rd.exportPdf')),
+    h('button', { onclick: () => printPdf(false) }, ic('book', 15), t('rd.exportPdf')),
+    h('button', { onclick: () => printPdf(true) }, ic('board', 15), t('rd.exportPdfCompact')),
   ]);
 
   const moreItems = [];
@@ -338,11 +339,16 @@ function renderBoard() {
 }
 
 // PDF export prints the reading view, even from the board.
-function printPdf() {
+function printPdf(compact) {
+  const go = () => {
+    document.body.classList.toggle('compact-print', !!compact);
+    print();
+    document.body.classList.remove('compact-print');
+  };
   if (st.mode === 'board') {
     setMode('full');
-    setTimeout(() => print(), 300);
-  } else print();
+    setTimeout(go, 300);
+  } else go();
 }
 
 // ---------------------------------------------------------------------------
@@ -362,8 +368,9 @@ function messageBody(sec, m) {
   const body = document.createElement('div');
   body.className = 'msg-body';
   body.innerHTML = NMSanitize.cleanHtml(m.html);
+  NMSanitize.sizeImages(body);
   const failed = [];
-  for (const hl of sec.highlights.filter((x) => x.messageKey === m.key && !x.image)) {
+  for (const hl of sec.highlights.filter((x) => x.messageKey === m.key && !x.image && m.role !== 'clip')) {
     if (!NMAnchor.wrapQuote(body, hl, () => markFor(hl)).length) failed.push(hl);
   }
   return { body, failed };
@@ -393,6 +400,8 @@ function renderFull() {
     if (lost.length) out.push(orphanList(lost, t('rd.lost')));
   }
   if (!out.length) out.push(h('div', { class: 'empty' }, h('p', {}, t('rd.noMessages'))));
+  const composer = noteComposer();
+  if (composer) out.push(composer);
   mainEl.replaceChildren(...out);
 
   if (st.focus) {
@@ -411,16 +420,24 @@ function renderFull() {
 // Plain typed text keeps its line breaks; rich HTML lays itself out.
 const isPlain = (html) => !/<(p|div|li|ul|ol|pre|h[1-6]|table|blockquote|figure|math)\b/i.test(html || '');
 
+// The clip or note right above this one in the same source, if any.
+function prevOwn(sec, m) {
+  const i = sec.messages.indexOf(m);
+  const p = i > 0 ? sec.messages[i - 1] : null;
+  return p && (p.role === 'clip' || p.role === 'note') ? p : null;
+}
+
 function renderMessage(sec, m) {
   const { body, failed } = messageBody(sec, m);
   body.dataset.mid = m.id;
   if (m.role === 'user' && isPlain(m.html)) body.classList.add('plain');
   const own = m.role === 'clip' || m.role === 'note';
   const article = h('article', { class: `msg ${m.role}${m.excluded ? ' excluded' : ''}`, 'data-hidden': `· ${t('rd.hidden')}` });
+  const state = h('span', { class: 'save-state' });
   const acts = h('span', { class: 'acts' },
-    h('button', {
+    own ? null : h('button', {
       class: 'btn small ghost',
-      onclick: () => (m.role === 'note' ? editNote(article, body, m) : editRich(article, body, m)),
+      onclick: () => editRich(article, body, m),
     }, ic('pencil', 14), t('rd.edit')),
     h('button', {
       class: 'btn small ghost',
@@ -430,6 +447,14 @@ function renderMessage(sec, m) {
         reload();
       },
     }, ic(m.excluded ? 'eye' : 'eyeOff', 14), m.excluded ? t('rd.show') : t('rd.hide')),
+    own && prevOwn(sec, m) ? h('button', {
+      class: 'icon-btn small', title: t('rd.mergeUp'),
+      onclick: async () => {
+        await rpc('mergeMessages', { intoId: prevOwn(sec, m).id, fromId: m.id });
+        toast(t('rd.merged'));
+        reload();
+      },
+    }, ic('mergeUp', 14)) : null,
     h('button', {
       class: 'icon-btn small', title: t('common.delete'),
       onclick: async () => {
@@ -439,11 +464,17 @@ function renderMessage(sec, m) {
         reload();
       },
     }, ic('trash', 14)));
+  if (own) {
+    const clipHl = sec.highlights.find((x) => x.messageKey === m.key);
+    if (clipHl) article.classList.add(`bar-${clipHl.color}`);
+    liveEntry(body, state, { message: m });
+  }
   article.append(
     h('div', { class: 'msg-head' },
       h('span', {}, roleLabel(sec.source, m)),
       own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
-      m.edited && m.role !== 'note' ? h('span', { class: 'edited-tag' }, t('rd.edited')) : null,
+      m.edited && !own ? h('span', { class: 'edited-tag' }, t('rd.edited')) : null,
+      own ? state : null,
       acts),
     body);
   if (failed.length) article.append(orphanList(failed, t('rd.orphans')));
@@ -452,57 +483,162 @@ function renderMessage(sec, m) {
 
 // Edit a saved message in place: delete what you don't need, fix wording.
 // Formatting, math and code stay as they are.
-function editRich(article, body, m) {
+// Edit a saved message in place. Clips and notes start editing with a
+// single click, with the cursor where you clicked. Only one edit is open at a
+// time; starting another saves the first.
+let activeEdit = null;
+
+const emptyTail = /(<p>(\s|&nbsp;|<br\s*\/?>)*<\/p>|<br\s*\/?>|\s)+$/i;
+
+function editRich(article, body, m, point) {
+  if (activeEdit?.body === body) return;
+  if (activeEdit) activeEdit.save(true);
   body.classList.add('editing');
   NMEditor.make(body, { images: true });
-  const bar = h('div', { class: 'edit-bar' },
-    h('span', { class: 'faint grow', style: 'font-size:12.5px' }, t('rd.editHint')),
-    h('button', { class: 'btn small', onclick: () => { NMEditor.hideBar(); reload(); } }, t('common.cancel')),
-    h('button', {
-      class: 'btn small primary',
-      onclick: async () => {
-        NMEditor.hideBar();
-        const copy = body.cloneNode(true);
-        copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
-        const html = NMSanitize.cleanHtml(copy.innerHTML);
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        const text = NMSanitize.toText(tmp);
-        if (!text) return toast(t('rd.editEmpty'));
-        await rpc('updateMessage', { id: m.id, html, text });
-        toast(t('toast.saved'));
-        reload();
-      },
-    }, ic('check', 14), t('common.save')));
-  body.after(bar);
-  body.focus();
-}
-
-// Swap a note for a rich editor in place.
-function editNote(article, body, m) {
-  const area = h('div', { class: 'note-editor' });
-  const editor = NMEditor.make(area, { html: m.html, placeholder: t('sp.notePlaceholder') });
-  const save = async () => {
-    if (editor.isEmpty()) return editor.focus();
-    await rpc('updateMessage', { id: m.id, html: editor.html(), text: editor.text() });
+  // Somewhere to type below a screenshot or other block.
+  const last = body.lastElementChild;
+  if (!last || /^(FIGURE|IMG|PRE|TABLE|UL|OL|BLOCKQUOTE|MATH|H[1-6])$/.test(last.tagName)) body.append(h('p', {}, h('br')));
+  const before = body.innerHTML;
+  const finish = () => {
+    body.contentEditable = 'false';
+    body.classList.remove('editing');
     NMEditor.hideBar();
+    if (activeEdit?.body === body) activeEdit = null;
+  };
+  const save = async (quiet = false) => {
+    finish();
+    if (body.innerHTML === before) {
+      if (!quiet) reload();
+      return;
+    }
+    const copy = body.cloneNode(true);
+    copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
+    const html = NMSanitize.cleanHtml(copy.innerHTML).replace(emptyTail, '');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = NMSanitize.toText(tmp) || (tmp.querySelector('img') ? t('ed.image') : '');
+    if (!text) return toast(t('rd.editEmpty'));
+    await rpc('updateMessage', { id: m.id, html, text });
     toast(t('toast.saved'));
+    if (!quiet) reload();
+  };
+  const cancel = () => {
+    finish();
     reload();
   };
-  area.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save();
-    if (e.key === 'Escape') {
-      NMEditor.hideBar();
-      reload();
+  activeEdit = { body, save };
+  body.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      save();
+    }
+    if (e.key === 'Escape') cancel();
+  });
+  const bar = h('div', { class: 'edit-bar' },
+    h('span', { class: 'faint grow', style: 'font-size:12.5px' }, t(m.role === 'clip' || m.role === 'note' ? 'ed.tips' : 'rd.editHint')),
+    h('button', { class: 'btn small', onclick: cancel }, t('common.cancel')),
+    h('button', { class: 'btn small primary', onclick: () => save() }, ic('check', 14), t('common.save')));
+  body.after(bar);
+  body.focus();
+  const hit = point && document.elementFromPoint(point.x, point.y);
+  if (hit?.tagName === 'IMG' && body.contains(hit)) setTimeout(() => NMEditor.selectImage(hit), 0);
+  const r = point && document.caretRangeFromPoint?.(point.x, point.y);
+  const sel = getSelection();
+  sel.removeAllRanges();
+  if (r && body.contains(r.startContainer)) sel.addRange(r);
+  else {
+    const end = document.createRange();
+    end.selectNodeContents(body);
+    end.collapse(false);
+    sel.addRange(end);
+  }
+}
+
+// Clips and notes are part of the page: click anywhere and type, like a
+// document. Changes save on their own a moment after you stop.
+function entryHtml(body) {
+  const copy = body.cloneNode(true);
+  copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
+  const html = NMSanitize.cleanHtml(copy.innerHTML).replace(emptyTail, '');
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return { html, text: NMSanitize.toText(tmp) || (tmp.querySelector('img') ? t('ed.image') : '') };
+}
+
+function liveEntry(body, state, opts) {
+  let m = opts.message || null;
+  NMEditor.make(body, { images: true, placeholder: opts.placeholder || '' });
+  body.classList.add('live');
+  // Room to type under a screenshot or other block.
+  const ensureTail = () => {
+    const last = body.lastElementChild;
+    if (last && /^(FIGURE|IMG|PRE|TABLE|MATH)$/.test(last.tagName)) body.append(h('p', {}, h('br')));
+  };
+  ensureTail();
+  let saved = entryHtml(body).html;
+  let timer = 0;
+  let pending = null;
+  const show = (k) => {
+    state.textContent = k ? t(k) : '';
+    state.classList.toggle('on', !!k);
+  };
+  const save = async () => {
+    clearTimeout(timer);
+    if (pending) await pending;
+    const {html, text} = entryHtml(body);
+    if (html === saved) return;
+    if (!text) return; // an emptied entry is left alone until it is deleted
+    show('rd.saving');
+    pending = (async () => {
+      if (m) await rpc('updateMessage', { id: m.id, html, text });
+      else m = await opts.create(html, text);
+      saved = html;
+    })();
+    try {
+      await pending;
+      show('rd.savedState');
+      clearTimeout(show.t);
+      show.t = setTimeout(() => show(null), 1600);
+    } catch (err) {
+      show(null);
+      toast(String(err.message || err));
+    } finally {
+      pending = null;
+    }
+  };
+  body.addEventListener('input', () => {
+    clearTimeout(timer);
+    timer = setTimeout(save, 700);
+  });
+  body.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      save();
     }
   });
-  const wrap = h('div', { class: 'note-edit' }, area,
-    h('div', { class: 'row' },
-      h('span', { class: 'faint grow', style: 'font-size:12px' }, t('ed.tips')),
-      h('button', { class: 'btn small', onclick: () => { NMEditor.hideBar(); reload(); } }, t('common.cancel')),
-      h('button', { class: 'btn small primary', onclick: save }, ic('check', 14), t('common.save'))));
-  body.replaceWith(wrap);
-  editor.focus();
+  body.addEventListener('focusout', (e) => {
+    if (e.relatedTarget && body.contains(e.relatedTarget)) return;
+    save().then(() => opts.onDone?.(m));
+  });
+  addEventListener('pagehide', () => save());
+}
+
+// The end of the page is a blank place to keep writing; what you type becomes
+// a new entry.
+function noteComposer() {
+  const topic = st.topic;
+  if (!topic) return null;
+  const src = st.kind === 'source' ? st.sections[0]?.source : null;
+  const into = src && src.kind !== 'note' ? src.id : undefined;
+  const body = h('div', { class: 'msg-body compose' });
+  const state = h('span', { class: 'save-state' });
+  liveEntry(body, state, {
+    placeholder: t('rd.writeHere'),
+    create: (html, text) => rpc('addNote', { topicId: topic.id, html, text, sourceId: into }),
+    onDone: (m) => m && reload(),
+  });
+  return h('section', { class: 'msg note composer-end no-print' },
+    h('div', { class: 'msg-head' }, h('span', {}, t('rd.newEntry')), state), body);
 }
 
 function orphanList(list, heading) {

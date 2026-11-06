@@ -73,6 +73,7 @@ body { font-size: 15px; }
 .msg-body th { background: var(--surface-2); }
 .msg-body blockquote { margin: 0 0 0.9em; padding-left: 16px; border-left: 3px solid var(--line-strong); color: var(--muted); }
 .msg-body img { max-width: 100%; height: auto; border-radius: 12px; display: block; }
+.msg-body figure + figure, .msg-body img + img { margin-top: 10px; }
 .msg-body figure { margin: 0; }
 .msg-body figcaption { font-family: var(--font); font-size: 14px; color: var(--muted); margin-top: 10px; }
 .msg-body a { color: var(--focus); }
@@ -198,3 +199,27 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .link-btn { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; padding: 0; color: var(--muted);
   font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .link-btn:hover { color: var(--text); }
+
+/* Clips and notes read and edit like a document */
+.msg.clip .msg-body.live, .msg.note .msg-body.live { background: transparent; padding: 2px 0 2px 16px; border-radius: 0; box-shadow: inset 3px 0 0 var(--bar, var(--sep));
+  font-size: 16.5px; line-height: 1.65; outline: none; cursor: text; min-height: 1.6em; position: relative; }
+.msg.note .msg-body.live { --bar: color-mix(in srgb, var(--sw-yellow) 70%, transparent); }
+.msg-body.live:focus { box-shadow: inset 3px 0 0 var(--focus); }
+.msg-body.live > p:last-child:has(> br:only-child) { margin-bottom: 0; }
+.msg.clip .msg-head, .msg.note .msg-head { min-height: 22px; margin-bottom: 4px; }
+.save-state { text-transform: none; letter-spacing: 0; font-weight: 550; font-size: 11.5px; color: var(--ok); opacity: 0; transition: opacity .2s; }
+.save-state.on { opacity: 1; }
+.composer-end { margin-top: 30px; }
+.msg-body.compose { min-height: 120px; }
+.msg-body.compose.is-empty::before { content: attr(data-placeholder); color: var(--faint); pointer-events: none; position: absolute; }
+@media print { .msg-body.live { box-shadow: inset 3px 0 0 var(--bar, #dcd6cb) !important; } }
+
+/* Compact PDF: images without their own size become thumbnails in a row. */
+@media print {
+  body.compact-print .msg-body figure:not(.nm-sized), body.compact-print .msg-body > img:not(.nm-sized) {
+    display: inline-block; width: calc(33.333% - 10px); margin: 0 10px 10px 0 !important; vertical-align: top; }
+  body.compact-print .msg-body figure:not(.nm-sized) img { width: 100%; }
+  body.compact-print .msg { margin-bottom: 14px; }
+  body.compact-print .msg-body { font-size: 14px; }
+  body.compact-print .msg.assistant .msg-body { font-size: 14.5px; line-height: 1.6; }
+}

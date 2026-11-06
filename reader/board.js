@@ -237,6 +237,12 @@ export function mountBoard(ctx) {
   }
 
   function buildBody(it) {
+    const node = buildBodyRaw(it);
+    NMSanitize.sizeImages(node);
+    return node;
+  }
+
+  function buildBodyRaw(it) {
     if (it.t === 'sticky') {
       return h('div', { class: 'bi-text rich', html: NMSanitize.cleanHtml(it.html || '') });
     }
