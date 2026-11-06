@@ -252,3 +252,9 @@ img.nm-img-sel { outline: 3px solid var(--focus); outline-offset: 2px; }
 .nm-img-handle { position: fixed; z-index: 2147483001; width: 18px; height: 18px; border-radius: 50%; background: var(--surface);
   box-shadow: 0 0 0 3px var(--focus), 0 2px 6px rgba(0,0,0,.25); cursor: nwse-resize; touch-action: none; }
 @media print { .nm-img-handle { display: none !important; } }
+
+.nm-drag-ghost { position: fixed; z-index: 2147483002; width: 160px; border-radius: 8px; opacity: 0.85; pointer-events: none; box-shadow: 0 12px 30px rgba(0,0,0,.3); }
+.nm-drop-mark { position: fixed; z-index: 2147483001; background: var(--focus); border-radius: 3px; pointer-events: none; }
+.nm-drag-src { opacity: 0.35; }
+body.nm-dragging, body.nm-dragging * { cursor: grabbing !important; user-select: none; }
+.rich[contenteditable="true"] img { cursor: grab; }

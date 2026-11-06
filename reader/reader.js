@@ -165,8 +165,7 @@ function renderBar() {
 
   const exportMenu = menu(h('span', {}, ic('download', 15), t('rd.export')), [
     h('button', { onclick: exportMarkdown }, ic('download', 15), t('rd.exportMd')),
-    h('button', { onclick: () => printPdf(false) }, ic('book', 15), t('rd.exportPdf')),
-    h('button', { onclick: () => printPdf(true) }, ic('board', 15), t('rd.exportPdfCompact')),
+    h('button', { onclick: printPdf }, ic('book', 15), t('rd.exportPdf')),
   ]);
 
   const moreItems = [];
@@ -339,16 +338,11 @@ function renderBoard() {
 }
 
 // PDF export prints the reading view, even from the board.
-function printPdf(compact) {
-  const go = () => {
-    document.body.classList.toggle('compact-print', !!compact);
-    print();
-    document.body.classList.remove('compact-print');
-  };
+function printPdf() {
   if (st.mode === 'board') {
     setMode('full');
-    setTimeout(go, 300);
-  } else go();
+    setTimeout(() => print(), 300);
+  } else print();
 }
 
 // ---------------------------------------------------------------------------
@@ -589,6 +583,7 @@ function liveEntry(body, state, opts) {
     if (html === saved) return;
     if (!text) return; // an emptied entry is left alone until it is deleted
     show('rd.saving');
+    lastLocalSave = Date.now();
     pending = (async () => {
       if (m) await rpc('updateMessage', { id: m.id, html, text });
       else m = await opts.create(html, text);
@@ -609,6 +604,14 @@ function liveEntry(body, state, opts) {
   body.addEventListener('input', () => {
     clearTimeout(timer);
     timer = setTimeout(save, 700);
+  });
+  // Its last image was dragged into another entry: remove the empty entry.
+  body.addEventListener('nm-emptied', async () => {
+    clearTimeout(timer);
+    if (!m) return;
+    lastLocalSave = Date.now();
+    await rpc('deleteMessage', { id: m.id });
+    body.closest('article')?.remove();
   });
   body.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -1055,13 +1058,16 @@ function htmlToMd(root) {
 // Live updates (a tracked chat getting new messages in another tab)
 
 let dirtyTimer = null;
+let lastLocalSave = 0;
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg?.type !== 'nm-changed') return;
   if (st.kind === 'source' && msg.sourceId && msg.sourceId !== st.id) return;
   if (st.mode === 'review') return; // don't reshuffle a running session
+  // Our own autosave: the page already shows it.
+  if (['updateMessage', 'addNote', 'mergeMessages', 'deleteMessage'].includes(msg.method) && Date.now() - lastLocalSave < 4000) return;
   clearTimeout(dirtyTimer);
   const tryReload = () => {
-    const busy = !pop.hidden || !tb.hidden || (st.mode !== 'board' && !getSelection().isCollapsed) || document.activeElement?.isContentEditable || board?.isBusy();
+    const busy = !pop.hidden || !tb.hidden || (st.mode !== 'board' && !getSelection().isCollapsed) || document.activeElement?.isContentEditable || document.querySelector('.nm-img-sel, .nm-dragging') || board?.isBusy();
     if (busy) dirtyTimer = setTimeout(tryReload, 1500);
     else reload();
   };

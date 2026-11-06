@@ -214,12 +214,3 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .msg-body.compose.is-empty::before { content: attr(data-placeholder); color: var(--faint); pointer-events: none; position: absolute; }
 @media print { .msg-body.live { box-shadow: inset 3px 0 0 var(--bar, #dcd6cb) !important; } }
 
-/* Compact PDF: images without their own size become thumbnails in a row. */
-@media print {
-  body.compact-print .msg-body figure:not(.nm-sized), body.compact-print .msg-body > img:not(.nm-sized) {
-    display: inline-block; width: calc(33.333% - 10px); margin: 0 10px 10px 0 !important; vertical-align: top; }
-  body.compact-print .msg-body figure:not(.nm-sized) img { width: 100%; }
-  body.compact-print .msg { margin-bottom: 14px; }
-  body.compact-print .msg-body { font-size: 14px; }
-  body.compact-print .msg.assistant .msg-body { font-size: 14.5px; line-height: 1.6; }
-}
