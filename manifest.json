@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "ThirdNote: Capture Everything. Remember Anything.",
   "short_name": "ThirdNote",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Save highlights, screenshots and ideas from AI chats and any website. Organise them on a board and review as flashcards.",
   "minimum_chrome_version": "116",
   "permissions": [

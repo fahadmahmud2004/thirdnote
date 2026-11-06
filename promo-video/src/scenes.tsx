@@ -84,7 +84,7 @@ export const Roll: React.FC = () => {
   return (
     <Fill bg={C.night}>
       <div style={{position: 'absolute', inset: '-40px -60px', transform: 'rotate(-6deg) scale(1.08)', filter: `blur(${blur}px)`, opacity: 0.92}}>
-        {Array.from({length: 8}).map((_, col) => (
+        {Array.from({length: 12}).map((_, col) => (
           <div
             key={col}
             style={{

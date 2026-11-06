@@ -328,10 +328,9 @@ export const Words: React.FC<{f: number; start: number; text: string; gap?: numb
       const p = ramp(f, start + i * gap, 16);
       const isMark = mark && w.replace(/[.,!?]/g, '') === mark;
       return (
-        <span key={i} style={{display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', padding: '0.1em 0.04em 0.18em', margin: '-0.1em 0 -0.18em'}}>
+        <span key={i} style={{display: 'inline-block', overflow: 'hidden', verticalAlign: 'top', padding: '0.1em 0.04em 0.18em', margin: `-0.1em ${i < text.split(' ').length - 1 ? '0.22em' : '0'} -0.18em 0`}}>
           <span style={{display: 'inline-block', transform: `translateY(${(1 - p) * 105}%) rotate(${(1 - p) * 6}deg)`, opacity: Math.min(1, p * 2)}}>
             {isMark ? <Marker p={ramp(f, markAt, 18)}>{w}</Marker> : w}
-            {i < text.split(' ').length - 1 ? ' ' : ''}
           </span>
         </span>
       );
