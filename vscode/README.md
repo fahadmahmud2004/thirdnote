@@ -53,4 +53,16 @@ ThirdNote keeps one file in VS Code's storage folder for the extension, so your 
 
 Questions, ideas or bugs: [open an issue](https://github.com/fahadmahmud2004/thirdnote/issues) or write to fahadmahmud2004@gmail.com.
 
-Made by Fahad Mahmud (BUET CSE, ex-NDC).
+## About the developer
+
+Made by **Fahad Mahmud** (BUET CSE, ex-NDC), founder of Freaking Waves.
+
+- Portfolio: [fahadmahmud.com](https://fahadmahmud.com)
+- Website: [freakingwaves.com](https://freakingwaves.com)
+- Facebook: [facebook.com/fahadmahmud2004](https://www.facebook.com/fahadmahmud2004)
+- Facebook Page: [facebook.com/freakingw](https://www.facebook.com/freakingw)
+- Facebook Group: [facebook.com/groups/freakingwaves](https://www.facebook.com/groups/freakingwaves)
+- Telegram Community: [t.me/freakingwaves](https://t.me/freakingwaves)
+- GitHub: [github.com/fahadmahmud2004](https://github.com/fahadmahmud2004)
+
+Other extensions by Fahad: [ThirdNote](https://marketplace.visualstudio.com/items?itemName=fahadmahmud2004.thirdnote) (code highlights, notes and flashcard review) and [Focus Waves](https://marketplace.visualstudio.com/items?itemName=fahadmahmud2004.focuswaves) (focus timer and live nature sounds).

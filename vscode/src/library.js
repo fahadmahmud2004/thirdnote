@@ -80,6 +80,9 @@ class Library {
         break;
       }
       case 'collect': s.setCollecting(m.collectionId || null); break;
+      case 'link':
+        if (/^https:\/\/[\w.-]+(\/[\w./?=&%-]*)?$/.test(String(m.url))) vscode.env.openExternal(vscode.Uri.parse(m.url));
+        break;
       case 'command': if (/^thirdnote\.[a-zA-Z]+$/.test(m.command)) vscode.commands.executeCommand(m.command); break;
     }
   }

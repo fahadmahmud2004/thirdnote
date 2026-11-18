@@ -84,6 +84,16 @@
               </button>`).join('')}
           </div>
           <button class="rail-add" data-act="newCollection">${icon('plus', 14)} New collection</button>
+          <div class="rail-foot">
+            <div>Made by <a href="#" data-link="https://fahadmahmud.com">Fahad Mahmud</a></div>
+            <div class="rail-links">
+              <a href="#" data-link="https://freakingwaves.com">Website</a>
+              <a href="#" data-link="https://www.facebook.com/fahadmahmud2004">Facebook</a>
+              <a href="#" data-link="https://www.facebook.com/freakingw">Page</a>
+              <a href="#" data-link="https://www.facebook.com/groups/freakingwaves">Group</a>
+              <a href="#" data-link="https://t.me/freakingwaves">Telegram</a>
+            </div>
+          </div>
         </nav>
         <main class="main">
           <header class="top">
@@ -295,6 +305,8 @@
   });
 
   app.addEventListener('click', (e) => {
+    const l = e.target.closest('[data-link]');
+    if (l) { e.preventDefault(); vscode.postMessage({ type: 'link', url: l.dataset.link }); return; }
     const b = e.target.closest('button, [data-editnote]');
     if (!b) return;
     const d = b.dataset;
