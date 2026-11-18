@@ -46,6 +46,7 @@ async function handle({ method, args = {} }, sender) {
       return { ok: true, result: dataUrl };
     }
     if (method === 'fetchImage') return { ok: true, result: await fetchImage(args.url) };
+    if (method === 'readFrames') return { ok: true, result: await readFrames(sender.tab?.id, args.area) };
     const fn = api[method];
     if (!fn) throw new Error(`Unknown method: ${method}`);
     const result = await fn(args);
@@ -67,6 +68,33 @@ function broadcast(method, args) {
       if (tab.id) send(tab.id, msg);
     }
   });
+}
+
+// What the page shows inside its frames (Excel on the web and other apps
+// that run their document in a frame from another site). Only on Save page.
+async function readFrames(tabId, area = 0) {
+  if (!tabId) return [];
+  const target = { tabId, allFrames: true };
+  try {
+    await chrome.scripting.executeScript({ target, files: ['lib/sanitize.js'] });
+    const results = await chrome.scripting.executeScript({
+      target,
+      args: [area],
+      // Only big frames: the document an app shows, not an embedded video or an ad.
+      func: (topArea) => {
+        if (window.top === window || innerWidth * innerHeight < topArea * 0.4) return null;
+        try {
+          const page = globalThis.NMSanitize.fromPage(document);
+          return page.text.length > 40 ? { url: location.href, html: page.html, text: page.text, size: innerWidth * innerHeight } : null;
+        } catch {
+          return null;
+        }
+      },
+    });
+    return results.map((r) => r.result).filter(Boolean).sort((a, b) => b.size - a.size).slice(0, 4);
+  } catch {
+    return [];
+  }
 }
 
 // An image from a page, as a data: URL a saved copy can keep. Fetched here

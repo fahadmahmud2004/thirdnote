@@ -367,7 +367,23 @@
       const cards = turns ? NMSanitize.chatCards(turns) : [];
       if (cards.length >= 3) page = NMSanitize.buildFeed(cards, false);
     }
-    const { html: raw, text } = page || NMSanitize.fromPage(document);
+    page = page || NMSanitize.fromPage(document);
+    // Documents running in a frame (Excel on the web): what they show is
+    // added, or used alone when the page itself is only the app's frame.
+    if (!page.posts) {
+      let frames = [];
+      try {
+        frames = await call('readFrames', { area: innerWidth * innerHeight });
+      } catch { /* frames are a bonus */ }
+      if (frames.length) {
+        const extra = frames.map((f) => f.html).join('<hr>');
+        const extraText = frames.map((f) => f.text).join('\n\n');
+        page = page.text.length < 300
+          ? { html: extra, text: extraText }
+          : { html: `${page.html}<hr>${extra}`, text: `${page.text}\n\n${extraText}` };
+      }
+    }
+    const { html: raw, text } = page;
     // A page of pictures (Pinterest, a gallery) is worth saving without text.
     if (!text && !/<img\b/i.test(raw)) throw new Error(t('err.emptyPage'));
     const topic = destination() || (await pickTopic(t('picker.savePage')));
