@@ -1,0 +1,245 @@
+{
+  "name": "thirdnote",
+  "displayName": "ThirdNote: Code Highlights, Notes and Review",
+  "description": "Highlight code with colours and notes, collect snippets and ideas into collections, and review them as flashcards. Everything stays on your machine.",
+  "version": "1.0.0",
+  "publisher": "fahadmahmud2004",
+  "author": {
+    "name": "Fahad Mahmud",
+    "url": "https://fahadmahmud2004.github.io/thirdnote/"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1F2A44",
+    "theme": "dark"
+  },
+  "homepage": "https://fahadmahmud2004.github.io/thirdnote/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fahadmahmud2004/thirdnote.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fahadmahmud2004/thirdnote/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Notebooks",
+    "Education",
+    "Other"
+  ],
+  "keywords": [
+    "notes",
+    "highlight",
+    "code notes",
+    "snippets",
+    "flashcards",
+    "study",
+    "bookmarks",
+    "annotations"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "thirdnote",
+          "title": "ThirdNote",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "thirdnote": [
+        {
+          "id": "thirdnote.collections",
+          "name": "Collections",
+          "icon": "media/activity.svg"
+        },
+        {
+          "id": "thirdnote.thisFile",
+          "name": "In This File",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "thirdnote.collections",
+        "contents": "Select some code and press Alt+Shift+H to highlight it, or start with a note.\n[Write a note](command:thirdnote.writeNote)\n[Open library](command:thirdnote.openLibrary)"
+      },
+      {
+        "view": "thirdnote.thisFile",
+        "contents": "No highlights in this file yet. Select code and choose ThirdNote: Highlight Selection."
+      }
+    ],
+    "colors": [
+      {
+        "id": "thirdnote.yellow",
+        "description": "ThirdNote yellow highlight",
+        "defaults": { "dark": "#F2C94C40", "light": "#F2C94C66", "highContrast": "#F2C94C66" }
+      },
+      {
+        "id": "thirdnote.red",
+        "description": "ThirdNote red highlight",
+        "defaults": { "dark": "#EB6F5C40", "light": "#EB6F5C50", "highContrast": "#EB6F5C66" }
+      },
+      {
+        "id": "thirdnote.green",
+        "description": "ThirdNote green highlight",
+        "defaults": { "dark": "#4CB87140", "light": "#4CB87150", "highContrast": "#4CB87166" }
+      },
+      {
+        "id": "thirdnote.blue",
+        "description": "ThirdNote blue highlight",
+        "defaults": { "dark": "#5B8DEF40", "light": "#5B8DEF50", "highContrast": "#5B8DEF66" }
+      },
+      {
+        "id": "thirdnote.yellowMark",
+        "description": "ThirdNote yellow marker in the gutter, overview ruler and tree",
+        "defaults": { "dark": "#F2C94C", "light": "#D4A72C", "highContrast": "#F2C94C" }
+      },
+      {
+        "id": "thirdnote.redMark",
+        "description": "ThirdNote red marker in the gutter, overview ruler and tree",
+        "defaults": { "dark": "#EB6F5C", "light": "#C2412D", "highContrast": "#EB6F5C" }
+      },
+      {
+        "id": "thirdnote.greenMark",
+        "description": "ThirdNote green marker in the gutter, overview ruler and tree",
+        "defaults": { "dark": "#4CB871", "light": "#2F9E62", "highContrast": "#4CB871" }
+      },
+      {
+        "id": "thirdnote.blueMark",
+        "description": "ThirdNote blue marker in the gutter, overview ruler and tree",
+        "defaults": { "dark": "#5B8DEF", "light": "#3A6BD1", "highContrast": "#5B8DEF" }
+      }
+    ],
+    "commands": [
+      { "command": "thirdnote.highlight", "title": "Highlight Selection", "category": "ThirdNote", "icon": "$(symbol-color)" },
+      { "command": "thirdnote.highlightWithNote", "title": "Highlight Selection with a Note", "category": "ThirdNote" },
+      { "command": "thirdnote.saveSelection", "title": "Save Selection as Snippet", "category": "ThirdNote" },
+      { "command": "thirdnote.saveFile", "title": "Save Whole File", "category": "ThirdNote" },
+      { "command": "thirdnote.saveClipboard", "title": "Save Clipboard", "category": "ThirdNote", "icon": "$(clippy)" },
+      { "command": "thirdnote.writeNote", "title": "Write a Note", "category": "ThirdNote", "icon": "$(edit)" },
+      { "command": "thirdnote.openLibrary", "title": "Open Library", "category": "ThirdNote", "icon": "$(library)" },
+      { "command": "thirdnote.review", "title": "Review as Flashcards", "category": "ThirdNote", "icon": "$(mortar-board)" },
+      { "command": "thirdnote.newCollection", "title": "New Collection", "category": "ThirdNote", "icon": "$(new-folder)" },
+      { "command": "thirdnote.setCollecting", "title": "Choose Collecting Target", "category": "ThirdNote" },
+      { "command": "thirdnote.exportMarkdown", "title": "Export to Markdown", "category": "ThirdNote", "icon": "$(markdown)" },
+      { "command": "thirdnote.exportBackup", "title": "Back Up Everything (JSON)", "category": "ThirdNote" },
+      { "command": "thirdnote.importBackup", "title": "Restore from Backup (JSON)", "category": "ThirdNote" },
+      { "command": "thirdnote.removeHighlightAtCursor", "title": "Remove Highlight at Cursor", "category": "ThirdNote" },
+      { "command": "thirdnote.nextHighlight", "title": "Go to Next Highlight in File", "category": "ThirdNote" },
+      { "command": "thirdnote.previousHighlight", "title": "Go to Previous Highlight in File", "category": "ThirdNote" },
+      { "command": "thirdnote.searchItems", "title": "Search Everything", "category": "ThirdNote", "icon": "$(search)" },
+      { "command": "thirdnote.openItem", "title": "Open", "category": "ThirdNote" },
+      { "command": "thirdnote.editNote", "title": "Edit Note", "category": "ThirdNote", "icon": "$(edit)" },
+      { "command": "thirdnote.changeColor", "title": "Change Colour", "category": "ThirdNote", "icon": "$(symbol-color)" },
+      { "command": "thirdnote.moveItem", "title": "Move to Collection", "category": "ThirdNote" },
+      { "command": "thirdnote.copyItem", "title": "Copy Text", "category": "ThirdNote", "icon": "$(copy)" },
+      { "command": "thirdnote.deleteItem", "title": "Delete", "category": "ThirdNote", "icon": "$(trash)" },
+      { "command": "thirdnote.renameCollection", "title": "Rename Collection", "category": "ThirdNote" },
+      { "command": "thirdnote.deleteCollection", "title": "Delete Collection", "category": "ThirdNote" },
+      { "command": "thirdnote.collectInto", "title": "Collect into This", "category": "ThirdNote", "icon": "$(target)" },
+      { "command": "thirdnote.reviewCollection", "title": "Review This Collection", "category": "ThirdNote", "icon": "$(mortar-board)" },
+      { "command": "thirdnote.exportCollection", "title": "Export This Collection to Markdown", "category": "ThirdNote", "icon": "$(markdown)" }
+    ],
+    "keybindings": [
+      { "command": "thirdnote.highlight", "key": "alt+shift+h", "when": "editorTextFocus && editorHasSelection" },
+      { "command": "thirdnote.highlightWithNote", "key": "alt+shift+j", "when": "editorTextFocus && editorHasSelection" },
+      { "command": "thirdnote.writeNote", "key": "alt+shift+n" },
+      { "command": "thirdnote.openLibrary", "key": "alt+shift+k" },
+      { "command": "thirdnote.saveClipboard", "key": "alt+shift+v" }
+    ],
+    "menus": {
+      "editor/context": [
+        { "command": "thirdnote.highlight", "when": "editorHasSelection", "group": "thirdnote@1" },
+        { "command": "thirdnote.highlightWithNote", "when": "editorHasSelection", "group": "thirdnote@2" },
+        { "command": "thirdnote.saveSelection", "when": "editorHasSelection", "group": "thirdnote@3" },
+        { "command": "thirdnote.removeHighlightAtCursor", "when": "thirdnote.cursorOnHighlight", "group": "thirdnote@4" }
+      ],
+      "explorer/context": [
+        { "command": "thirdnote.saveFile", "when": "!explorerResourceIsFolder", "group": "thirdnote@1" }
+      ],
+      "editor/title/context": [
+        { "command": "thirdnote.saveFile", "group": "thirdnote@1" }
+      ],
+      "view/title": [
+        { "command": "thirdnote.writeNote", "when": "view == thirdnote.collections", "group": "navigation@1" },
+        { "command": "thirdnote.openLibrary", "when": "view == thirdnote.collections", "group": "navigation@2" },
+        { "command": "thirdnote.review", "when": "view == thirdnote.collections", "group": "navigation@3" },
+        { "command": "thirdnote.newCollection", "when": "view == thirdnote.collections", "group": "navigation@4" },
+        { "command": "thirdnote.searchItems", "when": "view == thirdnote.collections", "group": "1_more@1" },
+        { "command": "thirdnote.saveClipboard", "when": "view == thirdnote.collections", "group": "1_more@2" },
+        { "command": "thirdnote.exportMarkdown", "when": "view == thirdnote.collections", "group": "1_more@3" },
+        { "command": "thirdnote.exportBackup", "when": "view == thirdnote.collections", "group": "1_more@4" },
+        { "command": "thirdnote.importBackup", "when": "view == thirdnote.collections", "group": "1_more@5" }
+      ],
+      "view/item/context": [
+        { "command": "thirdnote.collectInto", "when": "viewItem =~ /^collection/", "group": "inline@1" },
+        { "command": "thirdnote.reviewCollection", "when": "viewItem =~ /^collection/", "group": "inline@2" },
+        { "command": "thirdnote.collectInto", "when": "viewItem =~ /^collection/", "group": "1_main@1" },
+        { "command": "thirdnote.reviewCollection", "when": "viewItem =~ /^collection/", "group": "1_main@2" },
+        { "command": "thirdnote.exportCollection", "when": "viewItem =~ /^collection/", "group": "1_main@3" },
+        { "command": "thirdnote.renameCollection", "when": "viewItem == collection", "group": "2_edit@1" },
+        { "command": "thirdnote.deleteCollection", "when": "viewItem == collection", "group": "2_edit@2" },
+        { "command": "thirdnote.editNote", "when": "viewItem =~ /^item/", "group": "inline@1" },
+        { "command": "thirdnote.deleteItem", "when": "viewItem =~ /^item/", "group": "inline@2" },
+        { "command": "thirdnote.editNote", "when": "viewItem =~ /^item/", "group": "1_main@1" },
+        { "command": "thirdnote.changeColor", "when": "viewItem =~ /^item/", "group": "1_main@2" },
+        { "command": "thirdnote.moveItem", "when": "viewItem =~ /^item/", "group": "1_main@3" },
+        { "command": "thirdnote.copyItem", "when": "viewItem =~ /^item/", "group": "1_main@4" },
+        { "command": "thirdnote.deleteItem", "when": "viewItem =~ /^item/", "group": "2_danger@1" }
+      ],
+      "commandPalette": [
+        { "command": "thirdnote.openItem", "when": "false" },
+        { "command": "thirdnote.editNote", "when": "false" },
+        { "command": "thirdnote.changeColor", "when": "false" },
+        { "command": "thirdnote.moveItem", "when": "false" },
+        { "command": "thirdnote.copyItem", "when": "false" },
+        { "command": "thirdnote.deleteItem", "when": "false" },
+        { "command": "thirdnote.renameCollection", "when": "false" },
+        { "command": "thirdnote.deleteCollection", "when": "false" },
+        { "command": "thirdnote.collectInto", "when": "false" },
+        { "command": "thirdnote.reviewCollection", "when": "false" },
+        { "command": "thirdnote.exportCollection", "when": "false" },
+        { "command": "thirdnote.highlight", "when": "editorHasSelection" },
+        { "command": "thirdnote.highlightWithNote", "when": "editorHasSelection" },
+        { "command": "thirdnote.saveSelection", "when": "editorHasSelection" },
+        { "command": "thirdnote.removeHighlightAtCursor", "when": "thirdnote.cursorOnHighlight" }
+      ]
+    },
+    "configuration": {
+      "title": "ThirdNote",
+      "properties": {
+        "thirdnote.defaultColor": {
+          "type": "string",
+          "enum": ["yellow", "red", "green", "blue"],
+          "default": "yellow",
+          "description": "Colour used by Highlight Selection when you don't pick one."
+        },
+        "thirdnote.askForColor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for a colour each time you highlight. Turn off to always use the default colour."
+        },
+        "thirdnote.showInEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show highlights in the editor, gutter and scroll bar."
+        },
+        "thirdnote.showNoteAtLineEnd": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the start of a highlight's note faintly at the end of its line."
+        }
+      }
+    }
+  }
+}
