@@ -1,6 +1,8 @@
 import { api, MUTATING } from './lib/api.js';
 
-chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+// Chrome opens the side panel from the toolbar button; Firefox has a sidebar instead.
+if (chrome.sidePanel) chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+else if (globalThis.browser?.sidebarAction) chrome.action.onClicked.addListener(() => browser.sidebarAction.toggle());
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
