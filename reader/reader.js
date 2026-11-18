@@ -431,10 +431,6 @@ function renderMessage(sec, m) {
   const article = h('article', { class: `msg ${m.role}${m.excluded ? ' excluded' : ''}`, 'data-hidden': `· ${t('rd.hidden')}` });
   const state = h('span', { class: 'save-state' });
   const acts = h('span', { class: 'acts' },
-    own ? null : h('button', {
-      class: 'btn small ghost',
-      onclick: () => editRich(article, body, m),
-    }, ic('pencil', 14), t('rd.edit')),
     h('button', {
       class: 'btn small ghost',
       title: m.excluded ? null : t('rd.hideTip'),
@@ -463,95 +459,39 @@ function renderMessage(sec, m) {
   if (own) {
     const clipHl = sec.highlights.find((x) => x.messageKey === m.key);
     if (clipHl) article.classList.add(`bar-${clipHl.color}`);
-    liveEntry(body, state, { message: m });
+  }
+  // Every saved message is part of the page: click anywhere and type. It
+  // saves on its own a moment after you stop.
+  const entry = liveEntry(body, state, { message: m });
+  if (!own) {
+    // Highlighting here makes a real highlight (it shows in Highlights and
+    // Review), not just coloured text.
+    body.nmHighlight = async (color, range) => {
+      await entry.save();
+      const q = NMAnchor.quote(body, range);
+      if (!q?.exact) return toast(t('err.readSel'));
+      await rpc('addHighlight', { sourceId: sec.source.id, messageKey: m.key, ...q, color, note: '' });
+      getSelection().removeAllRanges();
+      toast(t('toast.highlighted', { label: NM.label(color) }));
+      reload();
+    };
   }
   article.append(
     h('div', { class: 'msg-head' },
       h('span', {}, roleLabel(sec.source, m)),
       own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
       m.edited && !own ? h('span', { class: 'edited-tag' }, t('rd.edited')) : null,
-      own ? state : null,
+      state,
       acts),
     body);
   if (failed.length) article.append(orphanList(failed, t('rd.orphans')));
   return article;
 }
 
-// Edit a saved message in place: delete what you don't need, fix wording.
-// Formatting, math and code stay as they are.
-// Edit a saved message in place. Clips and notes start editing with a
-// single click, with the cursor where you clicked. Only one edit is open at a
-// time; starting another saves the first.
-let activeEdit = null;
-
 const emptyTail = /(<p>(\s|&nbsp;|<br\s*\/?>)*<\/p>|<br\s*\/?>|\s)+$/i;
 
-function editRich(article, body, m, point) {
-  if (activeEdit?.body === body) return;
-  if (activeEdit) activeEdit.save(true);
-  body.classList.add('editing');
-  NMEditor.make(body, { images: true });
-  // Somewhere to type below a screenshot or other block.
-  const last = body.lastElementChild;
-  if (!last || /^(FIGURE|IMG|PRE|TABLE|UL|OL|BLOCKQUOTE|MATH|H[1-6])$/.test(last.tagName)) body.append(h('p', {}, h('br')));
-  const before = body.innerHTML;
-  const finish = () => {
-    body.contentEditable = 'false';
-    body.classList.remove('editing');
-    NMEditor.hideBar();
-    if (activeEdit?.body === body) activeEdit = null;
-  };
-  const save = async (quiet = false) => {
-    finish();
-    if (body.innerHTML === before) {
-      if (!quiet) reload();
-      return;
-    }
-    const copy = body.cloneNode(true);
-    copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
-    const html = NMSanitize.cleanHtml(copy.innerHTML).replace(emptyTail, '');
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    const text = NMSanitize.toText(tmp) || (tmp.querySelector('img') ? t('ed.image') : '');
-    if (!text) return toast(t('rd.editEmpty'));
-    await rpc('updateMessage', { id: m.id, html, text });
-    toast(t('toast.saved'));
-    if (!quiet) reload();
-  };
-  const cancel = () => {
-    finish();
-    reload();
-  };
-  activeEdit = { body, save };
-  body.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      save();
-    }
-    if (e.key === 'Escape') cancel();
-  });
-  const bar = h('div', { class: 'edit-bar' },
-    h('span', { class: 'faint grow', style: 'font-size:12.5px' }, t(m.role === 'clip' || m.role === 'note' ? 'ed.tips' : 'rd.editHint')),
-    h('button', { class: 'btn small', onclick: cancel }, t('common.cancel')),
-    h('button', { class: 'btn small primary', onclick: () => save() }, ic('check', 14), t('common.save')));
-  body.after(bar);
-  body.focus();
-  const hit = point && document.elementFromPoint(point.x, point.y);
-  if (hit?.tagName === 'IMG' && body.contains(hit)) setTimeout(() => NMEditor.selectImage(hit), 0);
-  const r = point && document.caretRangeFromPoint?.(point.x, point.y);
-  const sel = getSelection();
-  sel.removeAllRanges();
-  if (r && body.contains(r.startContainer)) sel.addRange(r);
-  else {
-    const end = document.createRange();
-    end.selectNodeContents(body);
-    end.collapse(false);
-    sel.addRange(end);
-  }
-}
-
-// Clips and notes are part of the page: click anywhere and type, like a
-// document. Changes save on their own a moment after you stop.
+// Saved messages, clips and notes are part of the page: click anywhere and
+// type, like a document. Changes save on their own a moment after you stop.
 function entryHtml(body) {
   const copy = body.cloneNode(true);
   copy.querySelectorAll('mark.nm-hl').forEach((mk) => mk.replaceWith(...mk.childNodes));
@@ -626,6 +566,7 @@ function liveEntry(body, state, opts) {
     save().then(() => opts.onDone?.(m));
   });
   addEventListener('pagehide', () => save());
+  return { save };
 }
 
 // The end of the page is a blank place to keep writing; what you type becomes

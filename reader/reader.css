@@ -214,3 +214,20 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .msg-body.compose.is-empty::before { content: attr(data-placeholder); color: var(--faint); pointer-events: none; position: absolute; }
 @media print { .msg-body.live { box-shadow: inset 3px 0 0 var(--bar, #dcd6cb) !important; } }
 
+
+/* Saved feeds: each post as a card. Header with the poster's picture, name
+   and time; the text; the pictures; then a quiet line of counts. */
+.msg-body [data-post] { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-sm); padding: 16px 18px 14px;
+  margin: 0 0 16px; font-family: var(--font); font-size: 15px; line-height: 1.6; }
+.msg-body [data-post] > p { margin: 0 0 0.55em; }
+.msg-body [data-part="head"] { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.msg-body [data-part="head"] img[data-part="avatar"] { width: 38px !important; height: 38px; border-radius: 50%; object-fit: cover; flex: none; margin: 0; }
+.msg-body [data-part="who"] { margin: 0 !important; line-height: 1.35; min-width: 0; }
+.msg-body [data-part="who"] strong { font-size: 14.5px; font-weight: 650; }
+.msg-body [data-part="who"] small { font-size: 12.5px; color: var(--muted); }
+.msg-body [data-part="who"] small a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--line-strong); }
+.msg-body [data-part="who"] small a:hover { color: var(--text); }
+.msg-body [data-part="media"] { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px -4px 4px; }
+.msg-body [data-part="media"] img { display: block; max-width: 100%; max-height: 420px; width: auto; object-fit: cover; border-radius: 12px; margin: 0; }
+.msg-body [data-part="stats"] { margin: 10px 0 0 !important; padding-top: 10px; border-top: 1px solid var(--sep); }
+.msg-body [data-part="stats"] small { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }

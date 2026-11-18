@@ -209,7 +209,7 @@
       const r = img.getBoundingClientRect();
       return r.width >= 48 && r.height >= 48;
     });
-    return imgs.map((img) => `<img src="${NM.escapeHtml(img.currentSrc || img.src)}" alt="${NM.escapeHtml(img.alt || '')}">`).join('');
+    return imgs.map((img) => `<img src="${NM.escapeHtml(img.currentSrc || img.src)}" alt="${NM.escapeHtml(img.alt || '')}" data-w="40">`).join('');
   }
 
   function collect(forceKey) {
