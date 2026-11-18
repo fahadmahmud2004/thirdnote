@@ -94,6 +94,7 @@ function showError(err) {
 function renderHeader() {
   $('#theme').innerHTML = THEME_ICONS[settings.theme] || THEME_ICONS.system;
   $('#settings').innerHTML = icon('sliders', 17);
+  $('#home').innerHTML = icon('home', 17);
   if (!$('#search-wrap .ic')) $('#search-wrap').insertAdjacentHTML('afterbegin', icon('search', 15));
 }
 
@@ -148,6 +149,7 @@ function renderCollect() {
     h('button', { class: 'btn', onclick: captureArea }, ic('crop', 15), t('sp.captureArea')),
     h('button', { class: `btn${view.composer ? ' primary' : ''}`, onclick: () => { view.composer = !view.composer; view.shot = null; renderCollect(); } },
       ic('notepad', 15), t('sp.writeNote')),
+    h('button', { class: 'btn wide', onclick: savePage, title: t('sp.savePageTip') }, ic('download', 15), t('sp.savePage')),
   ));
   if (view.composer) children.push(renderComposer());
   if (view.shot) children.push(renderShot());
@@ -263,6 +265,13 @@ async function ensureTopic() {
   view.chooser = true;
   renderCollect();
   return null;
+}
+
+async function savePage() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+  const ok = await chrome.tabs.sendMessage(tab.id, { type: 'nm-save-page' }).catch(() => false);
+  if (!ok) toast(t('err.noCapture'));
 }
 
 async function captureArea() {

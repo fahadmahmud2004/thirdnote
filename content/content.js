@@ -23,6 +23,7 @@
   let pending = null; // selection waiting for a colour
   let lastColor = 'yellow';
   let dead = false;
+  let pointerDown = false; // the mouse button is held on the page (selecting text)
   let ui = null;
 
   // ---------------------------------------------------------------------------
@@ -47,8 +48,11 @@
       });
     });
     document.addEventListener('mouseup', onPointerUp, true);
+    addEventListener('mouseup', () => { pointerDown = false; }, true);
+    addEventListener('blur', () => { pointerDown = false; });
     document.addEventListener('keyup', (e) => e.shiftKey && onPointerUp(e), true);
     document.addEventListener('mousedown', (e) => {
+      pointerDown = true;
       if (e.composedPath().includes(ui.host)) return;
       hideToolbar();
       hideLayer(ui.menu);
@@ -177,6 +181,9 @@
       checkSelection();
       if (pending) save(lastColor);
       else toast(t('toast.selectFirst'), 'error');
+    } else if (msg?.type === 'nm-save-page') {
+      savePage().catch((err) => toast(err.message, 'error'));
+      sendResponse(true);
     } else if (msg?.type === 'nm-capture') {
       startCapture(msg.mode).catch((err) => toast(err.message, 'error'));
       sendResponse(true);
@@ -192,12 +199,27 @@
     syncTimer = setTimeout(() => syncNow().catch((err) => console.warn('[ThirdNote]', err)), delay);
   }
 
+  // Pictures sent with a message (an uploaded screenshot, a photo) sit next
+  // to its text rather than inside it. Small ones are icons and avatars.
+  function attachments(m) {
+    const root = m.imgRoot;
+    if (!root || root === m.contentEl) return '';
+    const imgs = [...root.querySelectorAll('img')].filter((img) => {
+      if (m.contentEl.contains(img) || !img.currentSrc && !img.src) return false;
+      const r = img.getBoundingClientRect();
+      return r.width >= 48 && r.height >= 48;
+    });
+    return imgs.map((img) => `<img src="${NM.escapeHtml(img.currentSrc || img.src)}" alt="${NM.escapeHtml(img.alt || '')}">`).join('');
+  }
+
   function collect(forceKey) {
     const out = [];
     adapter.messageEls().forEach((m, i) => {
       const forced = m.key === forceKey;
       if (!forced && m.role === 'user' && !settings.captureQuestions) return;
-      const { html, text } = NMSanitize.fromElement(m.contentEl);
+      let { html, text } = NMSanitize.fromElement(m.contentEl);
+      const pics = attachments(m);
+      if (pics) html = `<p>${pics}</p>${html}`;
       if (!text && !html) return;
       if (!forced && settings.minChars && text.length < settings.minChars) return;
       out.push({ key: m.key, role: m.role, html, text, order: i });
@@ -207,21 +229,122 @@
 
   async function syncNow({ force = false, forceKey } = {}) {
     if (!state.tracked || !onChat()) return;
-    if (!force && adapter.isBusy()) {
+    // Wait while an answer is being written or the user is selecting text,
+    // so reading the page never gets in the way of a selection.
+    if (!force && (adapter.isBusy() || selecting())) {
       scheduleSync();
       return;
     }
     const changed = collect(forceKey).filter((m) => state.sent.get(m.key) !== m.html);
     if (!changed.length && !force) return;
+    const messages = await Promise.all(changed.map(async (m) => ({ ...m, html: await inlineImages(m.html) })));
     const res = await call('syncMessages', {
       sourceId: state.sourceId,
       title: adapter.title(),
       url: location.origin + location.pathname + (adapter.generic ? location.search : ''),
-      messages: changed,
+      messages,
     });
     changed.forEach((m) => state.sent.set(m.key, m.html));
     state.total = res.total;
     renderPill();
+  }
+
+  function selecting() {
+    if (pointerDown) return true;
+    const sel = getSelection();
+    return !!sel && !sel.isCollapsed && !ui?.tb.hidden;
+  }
+
+  // Image links on chat sites expire or need the site's login, so a saved
+  // copy keeps the picture itself, scaled down to a sensible size.
+  const imageCache = new Map(); // src -> data: URL (or '' when it can't be read)
+
+  async function imageData(src) {
+    if (imageCache.has(src)) return imageCache.get(src);
+    let data = '';
+    try {
+      if (src.startsWith('blob:') || new URL(src).origin === location.origin) {
+        const res = await fetch(src, { credentials: 'include' });
+        if (res.ok) data = await shrink(await res.blob());
+      }
+    } catch { /* fall through to the background */ }
+    if (!data && /^https?:/i.test(src)) {
+      try {
+        data = (await call('fetchImage', { url: src })) || '';
+      } catch { /* keep the link */ }
+    }
+    imageCache.set(src, data);
+    return data;
+  }
+
+  async function shrink(blob, max = 1600) {
+    if (!/^image\//.test(blob.type)) return '';
+    const bmp = await createImageBitmap(blob);
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    if (scale === 1 && blob.size < 400000) {
+      return new Promise((resolve) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result));
+        r.onerror = () => resolve('');
+        r.readAsDataURL(blob);
+      });
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.86);
+  }
+
+  async function inlineImages(html, limit = 40) {
+    if (!/<img\b/i.test(html)) return html;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const imgs = [...tpl.content.querySelectorAll('img')].filter((img) => !/^data:/i.test(img.getAttribute('src') || '')).slice(0, limit);
+    await Promise.all(imgs.map(async (img) => {
+      const data = await imageData(img.getAttribute('src'));
+      if (data) img.setAttribute('src', data);
+    }));
+    return tpl.innerHTML;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save the whole page: works on any site, including chat sites the extension
+  // doesn't know and ones whose layout changed.
+
+  async function savePage() {
+    hideToolbar();
+    // A known chat: save it as a chat, so new messages keep being added.
+    if (onChat() && !adapter.generic && hasBothRoles()) {
+      if (state.tracked) {
+        state.sent.clear();
+        await syncNow({ force: true });
+        toast(t('toast.synced', { n: state.total }));
+        return;
+      }
+      await startTracking();
+      return;
+    }
+    const { html: raw, text } = NMSanitize.fromPage(document);
+    if (!text) throw new Error(t('err.emptyPage'));
+    const topic = destination() || (await pickTopic(t('picker.savePage')));
+    if (!topic) return;
+    toast(t('toast.savingPage'));
+    const html = await inlineImages(raw);
+    const src = await pageSourceFor(topic);
+    await call('syncMessages', {
+      sourceId: src.id,
+      title: (adapter && !adapter.generic && adapter.title()) || document.title || location.hostname,
+      url: location.href.split('#')[0],
+      messages: [{ key: 'page', role: 'page', html, text, order: 0 }],
+    });
+    await refresh();
+    toast(t('toast.pageSaved', { name: topic.name }));
+  }
+
+  function hasBothRoles() {
+    const ms = adapter.messageEls();
+    return ms.some((m) => m.role === 'user') && ms.some((m) => m.role === 'assistant');
   }
 
   async function startTracking({ auto = false } = {}) {
@@ -313,10 +436,13 @@
     const ancEl = anc.nodeType === Node.ELEMENT_NODE ? anc : anc.parentElement;
     if (ancEl?.closest('input, textarea, [contenteditable=""], [contenteditable="true"]')) return hideToolbar();
 
-    if (onChat() && state.tracked) {
-      // A saved chat: the highlight lives inside the saved conversation.
-      const msg = adapter.messageEls().find((m) => m.el.contains(anc));
-      if (!msg) return hideToolbar();
+    // A saved chat: the highlight lives inside the saved conversation.
+    // If the selection isn't inside one message (it spans two, or the site's
+    // layout changed), it is kept as a clip instead, so it still saves.
+    const msg = onChat() && state.tracked
+      ? adapter.messageEls().find((m) => m.contentEl.contains(anc))
+      : null;
+    if (msg) {
       pending = { kind: 'chat', range: range.cloneRange(), msg };
     } else {
       // Anywhere else, including a chat that isn't saved: keep just the selection.
@@ -547,21 +673,48 @@
   async function pickTopic(heading) {
     const topics = await call('listTopics');
     const recent = (await NM.recentTopicIds()).map((id) => topics.find((x) => x.id === id)).filter(Boolean);
-    const shown = [...recent, ...topics.filter((x) => !recent.includes(x))].slice(0, 6);
+    // Recent first, then the rest by name.
+    const ordered = [...recent, ...topics.filter((x) => !recent.includes(x)).sort((a, b) => a.name.localeCompare(b.name))];
+    const FEW = 6;
     const p = ui.picker;
+    let showAll = false;
     p.heading.textContent = heading;
-    p.recentWrap.hidden = !shown.length;
-    p.newLabel.textContent = t(shown.length ? 'picker.orNew' : 'picker.createFirst');
-    p.recent.replaceChildren(...shown.map((x) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'topic-chip';
-      b.dataset.id = x.id;
-      b.innerHTML = `<span class="chip-ic">${icon('folder', 15)}</span><span class="chip-text"><span class="name"></span><span class="sub"></span></span>${icon('chevronRight', 15)}`;
-      b.querySelector('.name').textContent = x.name;
-      b.querySelector('.sub').textContent = x.subject;
-      return b;
-    }));
+    p.recentWrap.hidden = !ordered.length;
+    p.newLabel.textContent = t(ordered.length ? 'picker.orNew' : 'picker.createFirst');
+    p.find.hidden = ordered.length <= FEW;
+    p.findInput.value = '';
+
+    // Any part of the name or group, in any case, in any order of words.
+    const matches = (x, q) => q.split(/\s+/).filter(Boolean)
+      .every((w) => `${x.name} ${x.subject}`.toLowerCase().includes(w));
+    let visible = [];
+    const draw = () => {
+      const q = p.findInput.value.trim().toLowerCase();
+      visible = q ? ordered.filter((x) => matches(x, q)) : showAll ? ordered : ordered.slice(0, FEW);
+      p.recentLabel.textContent = t(q || showAll ? 'picker.all' : 'picker.recent');
+      p.recent.classList.toggle('tall', !!q || showAll);
+      p.recent.replaceChildren(...visible.map((x) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'topic-chip';
+        b.dataset.id = x.id;
+        b.innerHTML = `<span class="chip-ic">${icon('folder', 15)}</span><span class="chip-text"><span class="name"></span><span class="sub"></span></span>${icon('chevronRight', 15)}`;
+        b.querySelector('.name').textContent = x.name;
+        b.querySelector('.sub').textContent = x.subject;
+        return b;
+      }));
+      p.noMatch.hidden = !q || visible.length > 0;
+      p.noMatch.textContent = t('picker.noMatch');
+      p.seeAll.hidden = !!q || showAll || ordered.length <= FEW;
+      p.seeAll.textContent = t('picker.seeAll', { n: ordered.length });
+    };
+    draw();
+    p.findInput.oninput = draw;
+    p.seeAll.onclick = () => {
+      showAll = true;
+      draw();
+      p.findInput.focus();
+    };
     p.subjectList.replaceChildren(...[...new Set(topics.map((x) => x.subject))].map(option));
     const fillTopics = () => {
       const s = p.subject.value.trim().toLowerCase();
@@ -572,7 +725,7 @@
     fillTopics();
     p.subject.oninput = fillTopics;
     showLayer(p.overlay);
-    (shown.length ? p.recent.querySelector('button') : p.topic).focus();
+    (ordered.length > FEW ? p.findInput : ordered.length ? p.recent.querySelector('button') : p.topic).focus();
 
     return new Promise((resolve) => {
       const close = (topic) => {
@@ -606,6 +759,12 @@
       p.cancel.onclick = () => close(null);
       p.close.onclick = () => close(null);
       p.overlay.onclick = (e) => e.target === p.overlay && close(null);
+      p.findInput.onkeydown = (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (visible[0]) choose(visible[0]);
+      };
       p.form.onkeydown = (e) => {
         if (e.key === 'Escape') close(null);
         if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
@@ -663,8 +822,11 @@
           </div>
           <h3></h3>
           <div class="recent-wrap">
-            <div class="label" data-t="picker.recent"></div>
+            <div class="label recent-label"></div>
+            <label class="find" hidden>${icon('search', 15)}<input type="search" class="find-input" data-tp="picker.search"></label>
             <div class="recent"></div>
+            <div class="no-match" hidden></div>
+            <button type="button" class="see-all" hidden></button>
           </div>
           <div class="label new-label"></div>
           <div class="fields">
@@ -795,6 +957,11 @@
         heading: form.querySelector('h3'),
         recentWrap: form.querySelector('.recent-wrap'),
         recent: form.querySelector('.recent'),
+        recentLabel: form.querySelector('.recent-label'),
+        find: form.querySelector('.find'),
+        findInput: form.querySelector('.find-input'),
+        seeAll: form.querySelector('.see-all'),
+        noMatch: form.querySelector('.no-match'),
         newLabel: form.querySelector('.new-label'),
         subject: form.elements.subject,
         topic: form.elements.topic,
@@ -1008,6 +1175,16 @@
     .sheet h3 { margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -.015em; }
     .label { font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); margin-bottom: 7px; }
     .recent { display: grid; gap: 6px; max-height: 260px; overflow: auto; }
+    .recent.tall { max-height: min(340px, 42vh); }
+    .find { position: relative; display: block; margin-bottom: 8px; }
+    .find .ic { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--faint); pointer-events: none; }
+    .find input { width: 100%; font-size: 13.5px; padding: 9px 12px 9px 34px; border-radius: 11px; border: 1px solid transparent;
+      color: var(--text); background: var(--surface-2); outline: none; }
+    .find input:focus { border-color: var(--focus); background: var(--surface); box-shadow: 0 0 0 3px rgba(91,141,239,.2); }
+    .see-all { display: block; width: 100%; margin-top: 6px; border: 0; background: transparent; color: var(--muted); font-size: 12.5px;
+      font-weight: 600; padding: 7px; border-radius: 9px; }
+    .see-all:hover { background: var(--hover); color: var(--text); }
+    .no-match { font-size: 12.5px; color: var(--muted); padding: 8px 2px; }
     .topic-chip { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; border: 0;
       background: var(--surface-2); border-radius: 12px; padding: 8px 10px; transition: border-color .12s, background .12s; }
     .topic-chip:hover, .topic-chip:focus-visible { background: var(--hover); outline: none; }

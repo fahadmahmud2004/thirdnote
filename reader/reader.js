@@ -43,6 +43,7 @@ function roleLabel(src, m) {
   if (m.role === 'user') return t('rd.you');
   if (m.role === 'clip') return t('rd.clip');
   if (m.role === 'note') return t('rd.note');
+  if (m.role === 'page') return t('rd.fullPage');
   return NM.siteName(src);
 }
 
@@ -151,9 +152,10 @@ function render() {
 
 function renderBar() {
   const src = st.kind === 'source' ? st.sections[0]?.source : null;
-  const crumbs = h('div', { class: 'crumbs' }, h('img', { src: '../icons/icon32.png', width: 20, height: 20, alt: '' }));
+  const crumbs = h('div', { class: 'crumbs' },
+    h('a', { href: '../home/home.html', title: t('home.title') }, h('img', { src: '../icons/icon32.png', width: 20, height: 20, alt: '' })));
   if (st.topic) {
-    crumbs.append(h('span', { class: 'sep' }, st.topic.subject), h('span', { class: 'sep' }, '/'));
+    crumbs.append(h('a', { class: 'sep', href: `../home/home.html#/c/${encodeURIComponent(st.topic.id)}` }, st.topic.subject), h('span', { class: 'sep' }, '/'));
     crumbs.append(src ? h('a', { href: readerUrl({ topic: st.topic.id }) }, st.topic.name) : h('span', {}, st.topic.name));
   }
 

@@ -5,6 +5,7 @@ chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({ id: 'nm-save-selection', title: 'Save selection to ThirdNote', contexts: ['selection'] });
+    chrome.contextMenus.create({ id: 'nm-save-page', title: 'Save this whole page to ThirdNote', contexts: ['page'] });
     chrome.contextMenus.create({ id: 'nm-capture', title: 'Capture an area to ThirdNote', contexts: ['page', 'image', 'video', 'link'] });
   });
 });
@@ -12,11 +13,13 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab?.id) return;
   if (info.menuItemId === 'nm-save-selection') send(tab.id, { type: 'nm-context-save' });
+  if (info.menuItemId === 'nm-save-page') send(tab.id, { type: 'nm-save-page' });
   if (info.menuItemId === 'nm-capture') send(tab.id, { type: 'nm-capture', mode: 'area' });
 });
 
 chrome.commands.onCommand.addListener(async (command, tab) => {
   if (command === 'capture-area' && tab?.id) send(tab.id, { type: 'nm-capture', mode: 'area' });
+  if (command === 'save-page' && tab?.id) send(tab.id, { type: 'nm-save-page' });
 });
 
 function send(tabId, msg) {
@@ -42,6 +45,7 @@ async function handle({ method, args = {} }, sender) {
       const dataUrl = await chrome.tabs.captureVisibleTab(windowId, { format: 'jpeg', quality: 90 });
       return { ok: true, result: dataUrl };
     }
+    if (method === 'fetchImage') return { ok: true, result: await fetchImage(args.url) };
     const fn = api[method];
     if (!fn) throw new Error(`Unknown method: ${method}`);
     const result = await fn(args);
@@ -63,4 +67,29 @@ function broadcast(method, args) {
       if (tab.id) send(tab.id, msg);
     }
   });
+}
+
+// An image from a page, as a data: URL a saved copy can keep. Fetched here
+// because the extension may read any site, which a page's own script can't.
+async function fetchImage(url) {
+  if (!/^https?:/i.test(url || '')) return '';
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) return '';
+    let blob = await res.blob();
+    if (!/^image\//.test(blob.type)) return '';
+    const bmp = await createImageBitmap(blob);
+    const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+    if (scale < 1 || blob.size > 400000) {
+      const canvas = new OffscreenCanvas(Math.round(bmp.width * scale), Math.round(bmp.height * scale));
+      canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.86 });
+    }
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return `data:${blob.type};base64,${btoa(bin)}`;
+  } catch {
+    return '';
+  }
 }
