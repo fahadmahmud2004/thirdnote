@@ -128,3 +128,7 @@ main { padding: 0 12px 48px; }
 .dot:hover { background: var(--hover); }
 .dot.on::before { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--c); }
 .edit-row { display: flex; align-items: center; gap: 6px; }
+
+/* A picture dragged over a collection or a saved page */
+.coll.drop-on { box-shadow: 0 0 0 2px var(--focus), var(--shadow-sm); }
+.src.drop-on { background: color-mix(in srgb, var(--focus) 14%, var(--surface)); }

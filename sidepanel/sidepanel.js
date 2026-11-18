@@ -271,7 +271,9 @@ async function savePage() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) return;
   const ok = await chrome.tabs.sendMessage(tab.id, { type: 'nm-save-page' }).catch(() => false);
-  if (!ok) toast(t('err.noCapture'));
+  // No answer: the tab was open before ThirdNote was installed or updated
+  // (it needs one reload), or it is a browser page no extension may read.
+  if (!ok) toast(t(/^https?:/.test(tab.url || '') ? 'err.reloadTab' : 'err.cantRead'));
 }
 
 async function captureArea() {
@@ -386,7 +388,7 @@ function renderCollection(topic, srcs) {
   const isActive = active.on && active.topicId === topic.id;
   const showAll = view.allSources.has(topic.id) || view.query;
   const shown = showAll ? srcs : srcs.slice(0, 3);
-  return h('article', { class: `coll${isActive ? ' active' : ''}` },
+  return droppable(h('article', { class: `coll${isActive ? ' active' : ''}` },
     h('div', { class: 'coll-head', onclick: () => openReader({ topic: topic.id }) },
       tile(topic, 36),
       h('div', { class: 't' },
@@ -399,7 +401,7 @@ function renderCollection(topic, srcs) {
       h('button', { class: 'icon-btn small', title: t('common.rename'), onclick: () => renameTopic(topic) }, ic('pencil', 14)),
       h('button', { class: 'icon-btn small danger', title: t('common.delete'), onclick: () => deleteTopic(topic) }, ic('trash', 14))),
     srcs.length ? h('div', { class: 'srcs' },
-      ...shown.map((s) => h('div', { class: 'src', onclick: () => openReader({ source: s.id }) },
+      ...shown.map((s) => droppable(h('div', { class: 'src', onclick: () => openReader({ source: s.id }) },
         badge(s),
         h('div', { class: 't' }, h('div', { class: 'n', title: sourceTitle(s) }, sourceTitle(s)), h('div', { class: 'm' }, sourceMeta(s))),
         s.highlightCount ? h('span', { class: 'faint count', style: 'font-size:12px' }, String(s.highlightCount)) : null,
@@ -410,10 +412,78 @@ function renderCollection(topic, srcs) {
             e.stopPropagation();
             deleteSource(s);
           },
-        }, ic('trash', 14)))),
+        }, ic('trash', 14))), { topicId: topic.id, sourceId: s.id })),
       srcs.length > shown.length
         ? h('button', { class: 'more-srcs', onclick: () => { view.allSources.add(topic.id); renderList(); } }, `+${srcs.length - shown.length}`)
-        : null) : null);
+        : null) : null), { topicId: topic.id });
+}
+
+// ---------------------------------------------------------------------------
+// Drag a picture from any page (or a file from the computer) onto a
+// collection or a saved page here, and it is saved there.
+
+function droppable(el, target) {
+  el.addEventListener('dragover', (e) => {
+    if (![...e.dataTransfer.types].some((x) => /uri-list|html|files/i.test(x))) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+    document.querySelectorAll('.drop-on').forEach((x) => x !== el && x.classList.remove('drop-on'));
+    el.classList.add('drop-on');
+  });
+  el.addEventListener('dragleave', (e) => {
+    if (!el.contains(e.relatedTarget)) el.classList.remove('drop-on');
+  });
+  el.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    el.classList.remove('drop-on');
+    dropImage(e.dataTransfer, target).catch((err) => toast(String(err.message || err)));
+  });
+  return el;
+}
+
+async function droppedImage(dt) {
+  const file = [...dt.files].find((f) => /^image\//.test(f.type));
+  if (file) {
+    return new Promise((resolve) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result));
+      r.onerror = () => resolve('');
+      r.readAsDataURL(file);
+    });
+  }
+  const html = dt.getData('text/html');
+  const fromHtml = html && new DOMParser().parseFromString(html, 'text/html').querySelector('img')?.getAttribute('src');
+  const url = fromHtml || dt.getData('text/uri-list').split('\n').find((x) => x && !x.startsWith('#')) || '';
+  if (/^data:image\//.test(url)) return url;
+  if (!/^https?:/.test(url)) return '';
+  return rpc('fetchImage', { url });
+}
+
+async function dropImage(dt, target) {
+  const image = await droppedImage(dt);
+  if (!image) return toast(t('sp.dropNoImage'));
+  const topic = data.topics.find((x) => x.id === target.topicId);
+  if (!topic) return;
+  let sourceId = target.sourceId;
+  if (!sourceId) {
+    // Kept under the page it came from, like a screenshot taken there.
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const u = /^https?:/.test(tab?.url || '') ? new URL(tab.url) : null;
+    const pageKey = u ? `${u.origin}${u.pathname}${u.search}` : 'dropped';
+    sourceId = `page:${topic.id}:${pageKey}`;
+    if (!(await rpc('getSource', { id: sourceId }))) {
+      await rpc('trackSource', {
+        id: sourceId, kind: 'page', site: u ? u.hostname : 'files', url: u ? tab.url.split('#')[0] : '', pageKey,
+        title: tab?.title || (u ? u.hostname : t('sp.dropped')), topicId: topic.id, tracked: false,
+      });
+    }
+  }
+  const html = `<figure><img src="${image}" alt=""></figure>`;
+  await rpc('addClip', { sourceId, html, text: t('ed.image'), color: 'yellow', note: '', image });
+  toast(t('toast.picSaved', { name: topic.name }));
+  scheduleLoad();
 }
 
 async function renameTopic(topic) {

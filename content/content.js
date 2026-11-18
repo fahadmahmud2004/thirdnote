@@ -326,8 +326,9 @@
       return;
     }
     // Read the page first: feeds keep changing while a dialog is open.
-    const { html: raw, text } = NMSanitize.fromPage(document);
-    if (!text) throw new Error(t('err.emptyPage'));
+    const { html: raw, text } = (await googleDoc()) || NMSanitize.fromPage(document);
+    // A page of pictures (Pinterest, a gallery) is worth saving without text.
+    if (!text && !/<img\b/i.test(raw)) throw new Error(t('err.emptyPage'));
     const topic = destination() || (await pickTopic(t('picker.savePage')));
     if (!topic) return;
     const src = await pageSourceFor(topic);
@@ -363,6 +364,25 @@
     });
     await refresh();
     toast(t(mode === 'replace' ? 'toast.pageReplaced' : earlier.length ? 'toast.pageAdded' : 'toast.pageSaved', { name: topic.name }));
+  }
+
+  // Google Docs draws its text on a canvas, so the page itself has none to
+  // read. The document's own HTML export (what File > Download gives) is
+  // fetched instead; it is the same site, so the user's sign-in applies.
+  async function googleDoc() {
+    const m = location.hostname === 'docs.google.com' && location.pathname.match(/^\/document\/(?:u\/\d+\/)?d\/([\w-]+)/);
+    if (!m) return null;
+    try {
+      const res = await fetch(`/document/d/${m[1]}/export?format=html`, { credentials: 'include' });
+      if (!res.ok) return null;
+      const html = NMSanitize.cleanHtml(new DOMParser().parseFromString(await res.text(), 'text/html').body.innerHTML);
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const text = NMSanitize.toText(tmp);
+      return text ? { html, text } : null;
+    } catch {
+      return null;
+    }
   }
 
   function stamp(ms) {
