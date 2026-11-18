@@ -146,10 +146,10 @@ function renderCollect() {
   ];
   if (!on) children.push(h('p', { class: 'collect-hint' }, t('sp.collectHint')));
   children.push(h('div', { class: 'collect-actions' },
-    h('button', { class: 'btn', onclick: captureArea }, ic('crop', 15), t('sp.captureArea')),
+    h('button', { class: 'btn', onclick: savePage, title: t('sp.savePageTip') }, ic('download', 15), t('sp.savePage')),
     h('button', { class: `btn${view.composer ? ' primary' : ''}`, onclick: () => { view.composer = !view.composer; view.shot = null; renderCollect(); } },
       ic('notepad', 15), t('sp.writeNote')),
-    h('button', { class: 'btn wide', onclick: savePage, title: t('sp.savePageTip') }, ic('download', 15), t('sp.savePage')),
+    h('button', { class: 'btn wide', onclick: captureArea }, ic('crop', 15), t('sp.captureArea')),
   ));
   if (view.composer) children.push(renderComposer());
   if (view.shot) children.push(renderShot());
