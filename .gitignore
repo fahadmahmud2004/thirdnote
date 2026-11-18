@@ -11,3 +11,5 @@ promo-video/node_modules/
 promo-video/out/
 promo-video/public/score.wav
 vscode/*.vsix
+vscode/web/
+vscode/core/api.mjs

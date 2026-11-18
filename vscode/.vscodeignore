@@ -1,6 +1,7 @@
 **/._*
 **/.DS_Store
 media/screens/**
+scripts/**
 *.vsix
 .vscode/**
 test/**

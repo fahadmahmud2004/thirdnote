@@ -1,126 +1,106 @@
-// ThirdNote for VS Code: highlight code, keep notes and snippets in collections, review them later.
+// ThirdNote for VS Code: the ThirdNote library, reader, board and review, plus code highlights that stay on their code.
 const vscode = require('vscode');
-const { Store, COLORS, COLOR_LABELS, INBOX } = require('./store');
+const { Core } = require('./core');
 const { Highlights, displayPath, CONTEXT_CHARS } = require('./highlights');
-const { CollectionsTree, ThisFileTree, itemLabel, KIND_LABEL } = require('./tree');
-const { Library } = require('./library');
-const { toMarkdown } = require('./export');
+const { CollectionsTree, ThisFileTree, firstLine } = require('./tree');
+const { Pages } = require('./pages');
 
-const MAX_SAVE = 2 * 1024 * 1024; // keep single saves under 2 MB of text
+const COLORS = ['yellow', 'red', 'green', 'blue'];
+const COLOR_LABELS = { yellow: 'Yellow', red: 'Red', green: 'Green', blue: 'Blue' };
+const MAX_SAVE = 2 * 1024 * 1024;
 
-let current = null;
+let core = null;
 
 async function activate(context) {
-  const store = new Store(context);
-  current = store;
-  await store.load();
+  core = new Core(context);
+  await core.init();
 
-  const highlights = new Highlights(store);
+  // First run: match the pages to VS Code's light or dark theme.
+  if (!core.storage.settings) {
+    const dark = [vscode.ColorThemeKind.Dark, vscode.ColorThemeKind.HighContrast].includes(vscode.window.activeColorTheme.kind);
+    core.setStorage({ settings: { theme: dark ? 'dark' : 'light' } });
+  }
+
+  const highlights = new Highlights(core);
   highlights.activate();
   context.subscriptions.push(highlights);
 
-  const collectionsTree = new CollectionsTree(store);
-  const collectionsView = vscode.window.createTreeView('thirdnote.collections', {
-    treeDataProvider: collectionsTree,
-    dragAndDropController: collectionsTree,
-    canSelectMany: true,
-    showCollapseAll: true,
-  });
-  const thisFileView = vscode.window.createTreeView('thirdnote.thisFile', { treeDataProvider: new ThisFileTree(store, highlights) });
+  const pages = new Pages(context, core, { openCode: (uri) => openCode(uri) });
+
+  const collections = new CollectionsTree(core);
+  const collectionsView = vscode.window.createTreeView('thirdnote.collections', { treeDataProvider: collections, showCollapseAll: true });
+  const thisFileView = vscode.window.createTreeView('thirdnote.thisFile', { treeDataProvider: new ThisFileTree(core, highlights) });
   context.subscriptions.push(collectionsView, thisFileView);
 
   // Status bar: where new saves go.
-  const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+  const status = vscode.window.createStatusBarItem('thirdnote.target', vscode.StatusBarAlignment.Left, 50);
+  status.name = 'ThirdNote';
   status.command = 'thirdnote.setCollecting';
-  const updateStatus = () => {
-    const id = store.collecting;
-    status.text = id ? `$(target) ${store.collectionName(id)}` : '$(bookmark) ThirdNote';
-    status.tooltip = id ? `ThirdNote is collecting into "${store.collectionName(id)}". Click to change.` : 'ThirdNote: choose a collection for new saves';
-    const total = store.items.length;
-    collectionsView.badge = undefined;
-    collectionsView.description = total ? `${total} saved` : undefined;
+  const paintStatus = async () => {
+    const topics = await core.topics();
+    const st = core.storage;
+    const on = st.collecting && topics.find((t) => t.id === st.activeTopicId);
+    status.text = on ? `$(target) ${on.name}` : '$(bookmark) ThirdNote';
+    status.tooltip = on ? `ThirdNote is collecting into "${core.topicLabel(on)}". Click to change.` : 'ThirdNote: choose where new highlights and notes go';
     status.show();
   };
-  updateStatus();
-  context.subscriptions.push(status, store.onDidChange(updateStatus));
+  paintStatus();
+  context.subscriptions.push(status, core.onDidChange(paintStatus), core.onDidChangeStorage(paintStatus));
 
-  // Context key for the editor menu.
   const updateCursorKey = () => {
     const ed = vscode.window.activeTextEditor;
-    const on = !!ed && highlights.at(ed.document, ed.selection.active).length > 0;
-    vscode.commands.executeCommand('setContext', 'thirdnote.cursorOnHighlight', on);
+    vscode.commands.executeCommand('setContext', 'thirdnote.cursorOnHighlight', !!ed && highlights.at(ed.document, ed.selection.active).length > 0);
   };
-  context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection(updateCursorKey),
-    vscode.window.onDidChangeActiveTextEditor(updateCursorKey),
-  );
+  context.subscriptions.push(vscode.window.onDidChangeTextEditorSelection(updateCursorKey), vscode.window.onDidChangeActiveTextEditor(updateCursorKey));
 
   // ---------- helpers ----------
   const idOf = (arg) => {
     if (!arg) return null;
     if (typeof arg === 'string') return arg;
-    if (arg.type === 'item' || arg.type === 'collection') return arg.id;
-    if (typeof arg.id === 'string') return arg.id.replace(/^(item|file|col):/, '');
+    if (arg.type === 'hl') return arg.id;
+    if (typeof arg.id === 'string') return arg.id;
     return null;
   };
-  const selectedItemIds = (arg, all) => {
-    const list = Array.isArray(all) && all.length ? all : [arg];
-    return list.map(idOf).filter((id) => id && store.item(id));
-  };
-  const targetCollection = () => store.collecting || INBOX;
 
   async function pickColor(placeHolder = 'Highlight colour') {
     const cfg = vscode.workspace.getConfiguration('thirdnote');
-    if (!cfg.get('askForColor', true)) return cfg.get('defaultColor', 'yellow');
     const def = cfg.get('defaultColor', 'yellow');
+    if (!cfg.get('askForColor', true)) return def;
     const order = [def, ...COLORS.filter((c) => c !== def)];
     const picked = await vscode.window.showQuickPick(
-      order.map((c, i) => ({ label: `$(circle-filled) ${COLOR_LABELS[c]}`, description: i === 0 ? 'default' : '', color: c, iconPath: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor(`thirdnote.${c}Mark`)) })),
+      order.map((c, i) => ({ label: COLOR_LABELS[c], description: i === 0 ? 'default' : '', color: c, iconPath: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor(`thirdnote.${c}Mark`)) })),
       { placeHolder, title: 'ThirdNote' },
     );
     return picked ? picked.color : null;
   }
 
-  async function pickCollection(placeHolder, { allowNew = true, current } = {}) {
-    const items = [
-      { label: '$(inbox) Inbox', id: INBOX, description: current === INBOX ? 'current' : '' },
-      ...store.collections.map((c) => ({ label: `$(folder) ${c.name}`, id: c.id, description: current === c.id ? 'current' : '' })),
-    ];
+  async function pickTopic(placeHolder, { allowNew = true } = {}) {
+    const topics = await core.topics();
+    const items = topics.map((t) => ({ label: `$(folder) ${t.name}`, description: t.subject, id: t.id }));
     if (allowNew) items.push({ label: '$(new-folder) New collection...', id: '__new__' });
     const picked = await vscode.window.showQuickPick(items, { placeHolder, title: 'ThirdNote' });
     if (!picked) return null;
-    if (picked.id === '__new__') {
-      const c = await newCollection();
-      return c ? c.id : null;
-    }
+    if (picked.id === '__new__') { const t = await newCollection(); return t ? t.id : null; }
     return picked.id;
   }
 
   async function newCollection() {
-    const name = await vscode.window.showInputBox({
-      title: 'New collection',
-      prompt: 'A subject, project or idea',
-      placeHolder: 'e.g. Algorithms, Project X, Interview prep',
-      validateInput: (v) => (!v.trim() ? 'Give it a name' : store.collections.some((c) => c.name.toLowerCase() === v.trim().toLowerCase()) ? 'A collection with this name already exists' : null),
-    });
+    const subject = await vscode.window.showInputBox({ title: 'New collection (1 of 2)', prompt: 'Subject or area', value: 'VS Code', placeHolder: 'e.g. Algorithms, Project X' });
+    if (subject === undefined) return null;
+    const name = await vscode.window.showInputBox({ title: 'New collection (2 of 2)', prompt: 'Collection name', placeHolder: 'e.g. Graph problems, Auth flow', validateInput: (v) => (v.trim() ? null : 'Give it a name') });
     if (!name) return null;
-    return store.addCollection(name);
+    const t = await core.call('saveTopic', { subject, name });
+    core.setStorage({ vscodeTopicId: t.id });
+    return t;
   }
 
-  function savedMessage(what, it) {
-    const where = store.collectionName(it.collectionId);
-    vscode.window.setStatusBarMessage(`$(check) ThirdNote: ${what} saved to ${where}`, 3000);
-  }
-
-  function sourceFor(doc, sel) {
+  function anchorFor(doc, sel) {
     const full = doc.getText();
     const s = doc.offsetAt(sel.start);
     const e = doc.offsetAt(sel.end);
-    const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
     return {
       uri: doc.uri.toString(),
       path: displayPath(doc.uri),
-      workspace: folder ? folder.name : '',
       start: { line: sel.start.line, character: sel.start.character },
       end: { line: sel.end.line, character: sel.end.character },
       before: full.slice(Math.max(0, s - CONTEXT_CHARS), s),
@@ -128,38 +108,32 @@ async function activate(context) {
     };
   }
 
-  async function highlight({ withNote }) {
+  async function saved(what, topicId) {
+    const t = (await core.topics()).find((x) => x.id === topicId);
+    vscode.window.setStatusBarMessage(`$(check) ThirdNote: ${what} saved to ${t ? t.name : 'ThirdNote'}`, 3000);
+  }
+
+  async function highlight({ color, withNote = false } = {}) {
     const ed = vscode.window.activeTextEditor;
     if (!ed) return;
     const sels = ed.selections.filter((s) => !s.isEmpty);
-    if (!sels.length) {
-      vscode.window.showInformationMessage('Select some code first, then highlight it.');
-      return;
-    }
-    const color = await pickColor();
+    if (!sels.length) return vscode.window.showInformationMessage('Select some code first, then highlight it.');
+    color = color || (await pickColor());
     if (!color) return;
     let note = '';
     if (withNote) {
-      note = await vscode.window.showInputBox({ title: 'Note for this highlight', prompt: 'Why it matters, or a question you want to be asked when reviewing', placeHolder: 'e.g. Why does this loop stop at n / 2?' });
+      note = await vscode.window.showInputBox({ title: 'Note for this highlight', prompt: 'Why it matters, or a question for your review', placeHolder: 'e.g. Why does this loop stop at n / 2?' });
       if (note === undefined) return;
     }
-    let last;
+    const topicId = await core.targetTopic();
     for (const sel of sels) {
       const text = ed.document.getText(sel);
       if (text.length > MAX_SAVE) { vscode.window.showWarningMessage('That selection is too large to highlight.'); continue; }
-      // Replace an existing highlight with exactly the same range instead of stacking another.
-      const existing = highlights.at(ed.document, sel.start).find((h) => h.range.isEqual(sel));
-      if (existing) {
-        store.updateItem(existing.item.id, { color, ...(withNote ? { note } : {}) });
-        last = existing.item;
-        continue;
-      }
-      last = store.addItem({
-        kind: 'highlight', text, note, color, language: ed.document.languageId,
-        collectionId: targetCollection(), source: sourceFor(ed.document, sel),
-      });
+      const same = highlights.at(ed.document, sel.start).find((h) => h.range.isEqual(sel));
+      if (same) { await core.call('updateHighlight', { id: same.item.id, color, ...(withNote ? { note } : {}) }); core.changed('updateHighlight'); continue; }
+      await core.addCode({ doc: ed.document, text, color, note, anchor: anchorFor(ed.document, sel), topicId });
     }
-    if (last) savedMessage('Highlight', last);
+    saved('Highlight', topicId);
   }
 
   async function saveSelection() {
@@ -167,13 +141,11 @@ async function activate(context) {
     if (!ed || ed.selection.isEmpty) return;
     const text = ed.selections.filter((s) => !s.isEmpty).map((s) => ed.document.getText(s)).join('\n\n');
     if (text.length > MAX_SAVE) return vscode.window.showWarningMessage('That selection is too large to save.');
-    const title = await vscode.window.showInputBox({ title: 'Save snippet', prompt: 'Title (optional)', placeHolder: 'e.g. Binary search template' });
-    if (title === undefined) return;
-    const it = store.addItem({
-      kind: 'snippet', title: title.trim(), text, color: vscode.workspace.getConfiguration('thirdnote').get('defaultColor', 'yellow'),
-      language: ed.document.languageId, collectionId: targetCollection(), source: sourceFor(ed.document, ed.selection),
-    });
-    savedMessage('Snippet', it);
+    const note = await vscode.window.showInputBox({ title: 'Save snippet', prompt: 'A title or note (optional)', placeHolder: 'e.g. Binary search template' });
+    if (note === undefined) return;
+    const topicId = await core.targetTopic();
+    await core.addCode({ doc: ed.document, text, color: vscode.workspace.getConfiguration('thirdnote').get('defaultColor', 'yellow'), note, topicId });
+    saved('Snippet', topicId);
   }
 
   async function saveFile(uri) {
@@ -183,100 +155,78 @@ async function activate(context) {
     if (!doc) return;
     const text = doc.getText();
     if (text.length > MAX_SAVE) return vscode.window.showWarningMessage('That file is too large to save into ThirdNote.');
-    const name = doc.uri.path.split('/').pop();
-    const it = store.addItem({
-      kind: 'file', title: name, text, language: doc.languageId,
-      color: vscode.workspace.getConfiguration('thirdnote').get('defaultColor', 'yellow'),
-      collectionId: targetCollection(),
-      source: { uri: doc.uri.toString(), path: displayPath(doc.uri), workspace: (vscode.workspace.getWorkspaceFolder(doc.uri) || {}).name || '' },
-    });
-    savedMessage(`"${name}"`, it);
+    const topicId = await core.targetTopic();
+    await core.addCode({ doc, text, color: 'blue', note: `Whole file: ${doc.uri.path.split('/').pop()}`, topicId });
+    saved('File', topicId);
   }
 
   async function saveClipboard() {
     const text = await vscode.env.clipboard.readText();
     if (!text || !text.trim()) return vscode.window.showInformationMessage('The clipboard is empty. Copy something first.');
     if (text.length > MAX_SAVE) return vscode.window.showWarningMessage('The clipboard text is too large to save.');
-    const title = await vscode.window.showInputBox({ title: 'Save clipboard', prompt: 'Title (optional)', value: '', placeHolder: text.split('\n')[0].slice(0, 80) });
-    if (title === undefined) return;
-    const it = store.addItem({ kind: 'clip', title: title.trim(), text, color: vscode.workspace.getConfiguration('thirdnote').get('defaultColor', 'yellow'), collectionId: targetCollection() });
-    savedMessage('Clip', it);
+    const looksLikeCode = /[{};]\s*$|^\s{2,}\S|=>|\bfunction\b|\bdef\b|\bclass\b/m.test(text) && text.split('\n').length > 1;
+    const topicId = await core.targetTopic();
+    await core.addTextNote(text, topicId, { asCode: looksLikeCode });
+    saved('Clipboard', topicId);
   }
 
-  async function openItem(arg, opts = {}) {
-    const it = store.item(idOf(arg));
-    if (!it) return;
-    if (!it.source || !it.source.uri || it.kind === 'note' || it.kind === 'clip') {
-      if (!opts.fromLibrary) library.show({ focusId: it.id });
-      return;
-    }
+  async function openCode(uri, highlightId) {
     let doc;
-    try {
-      doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(it.source.uri));
-    } catch {
-      const choice = await vscode.window.showWarningMessage(`"${it.source.path}" can't be opened. It may have been moved or deleted.`, 'Show in Library');
-      if (choice) library.show({ focusId: it.id });
-      return;
+    try { doc = await vscode.workspace.openTextDocument(uri); } catch {
+      return vscode.window.showWarningMessage(`ThirdNote can't open ${uri.fsPath || uri.toString()}. It may have been moved or deleted.`);
     }
     let range;
-    if (it.kind === 'highlight') {
-      const found = highlights.rangesFor(doc).find((r) => r.item.id === it.id);
+    if (highlightId) {
+      const found = highlights.rangesFor(doc).find((r) => r.item.id === highlightId);
       if (found) range = found.range;
     }
-    if (!range && it.source.start) {
-      const p = new vscode.Position(Math.min(it.source.start.line, doc.lineCount - 1), 0);
-      range = new vscode.Range(p, p);
-    }
-    const ed = await vscode.window.showTextDocument(doc, { preview: false, selection: range });
+    const ed = await vscode.window.showTextDocument(doc, { preview: false, selection: range, viewColumn: vscode.ViewColumn.One });
     if (range) ed.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
   }
 
-  async function deleteItem(arg, all) {
-    const ids = selectedItemIds(arg, all);
-    if (!ids.length) return;
-    const label = ids.length === 1 ? `"${itemLabel(store.item(ids[0]))}"` : `${ids.length} items`;
-    const ok = await vscode.window.showWarningMessage(`Delete ${label}?`, { modal: true, detail: 'This removes it from ThirdNote. Your files are not changed.' }, 'Delete');
+  async function openItem(arg) {
+    const id = idOf(arg);
+    const it = core.item(id);
+    if (it && it.source && it.source.uri) return openCode(vscode.Uri.parse(it.source.uri), id);
+    const h = core.db.raw('highlights').get(id);
+    if (h) pages.show('reader', `?source=${encodeURIComponent(h.sourceId)}&hl=${encodeURIComponent(id)}`);
+  }
+
+  async function deleteItem(arg) {
+    const id = idOf(arg);
+    const h = core.db.raw('highlights').get(id);
+    if (!h) return;
+    const ok = await vscode.window.showWarningMessage(`Delete this highlight?`, { modal: true, detail: firstLine(h.note || h.text, 120) + '\n\nYour code is not changed.' }, 'Delete');
     if (ok !== 'Delete') return;
-    for (const id of ids) { highlights.forget(id); store.deleteItem(id); }
+    highlights.forget(id);
+    await core.call('deleteHighlight', { id });
+    // A clip without its highlight is only the copied code: remove it too.
+    const m = core.db.raw('messages').get(`${h.sourceId}|${h.messageKey}`);
+    if (m && m.role === 'clip') await core.call('deleteMessage', { id: m.id });
+    core.changed('deleteHighlight', { sourceId: h.sourceId });
   }
 
-  async function editNote(arg) {
-    const it = store.item(idOf(arg));
-    if (!it) return;
-    if (it.kind === 'note') return library.show({ focusId: it.id });
-    const note = await vscode.window.showInputBox({ title: `Note for ${KIND_LABEL[it.kind].toLowerCase()}`, value: it.note || '', prompt: 'Leave empty to remove the note' });
-    if (note === undefined) return;
-    store.updateItem(it.id, { note });
-  }
+  const readerFor = async (mode) => {
+    const st = core.storage;
+    const topicId = (st.collecting && st.activeTopicId) || (await core.targetTopic());
+    pages.show('reader', `?topic=${encodeURIComponent(topicId)}${mode ? `&mode=${mode}` : ''}`);
+  };
 
-  async function exportMarkdown(collectionId) {
-    const scope = collectionId || null;
-    const items = scope ? store.itemsIn(scope) : store.items.slice().sort((a, b) => b.createdAt - a.createdAt);
-    if (!items.length) return vscode.window.showInformationMessage('Nothing to export yet.');
-    const content = toMarkdown(store, items, scope);
-    const doc = await vscode.workspace.openTextDocument({ language: 'markdown', content });
-    await vscode.window.showTextDocument(doc, { preview: false });
-    vscode.window.setStatusBarMessage('ThirdNote: exported. Save the file wherever you like.', 4000);
-  }
-
-  const library = new Library(context, store, { openItem, deleteItem: (id) => deleteItem(id), exportMarkdown, newCollection });
-
-  // Hover on a highlight: its note plus quick actions.
+  // Hover on a highlight: its note and quick actions.
   context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: '*' }, {
     provideHover(doc, pos) {
       const hits = highlights.at(doc, pos);
       if (!hits.length) return null;
       const parts = hits.map(({ item, range }) => {
         const md = new vscode.MarkdownString(undefined, true);
-        md.isTrusted = { enabledCommands: ['thirdnote.editNote', 'thirdnote.changeColor', 'thirdnote.deleteItem', 'thirdnote.openLibrary', 'thirdnote.moveItem'] };
+        md.isTrusted = { enabledCommands: ['thirdnote.editNote', 'thirdnote.changeColor', 'thirdnote.deleteItem', 'thirdnote.openInReader'] };
         const arg = encodeURIComponent(JSON.stringify([item.id]));
-        md.appendMarkdown(`**ThirdNote** · ${COLOR_LABELS[item.color]} · ${store.collectionName(item.collectionId).replace(/[\\`*_[\]]/g, '\\$&')}\n\n`);
+        md.appendMarkdown(`**ThirdNote** · ${COLOR_LABELS[item.color]}\n\n`);
         if (item.note) md.appendMarkdown(`${item.note.replace(/[\\`*_{}[\]#<>|]/g, '\\$&')}\n\n`);
         md.appendMarkdown([
           `[$(edit) ${item.note ? 'Edit note' : 'Add note'}](command:thirdnote.editNote?${arg})`,
           `[$(symbol-color) Colour](command:thirdnote.changeColor?${arg})`,
-          `[$(folder) Move](command:thirdnote.moveItem?${arg})`,
-          `[$(library) Library](command:thirdnote.openLibrary?${encodeURIComponent(JSON.stringify([{ focusId: item.id }]))})`,
+          `[$(book) Open in reader](command:thirdnote.openInReader?${arg})`,
           `[$(trash) Remove](command:thirdnote.deleteItem?${arg})`,
         ].join(' &nbsp; '));
         return { md, range };
@@ -287,77 +237,52 @@ async function activate(context) {
 
   // ---------- commands ----------
   const reg = (id, fn) => context.subscriptions.push(vscode.commands.registerCommand(id, fn));
-
-  reg('thirdnote.highlight', () => highlight({ withNote: false }));
+  reg('thirdnote.highlight', () => highlight());
+  for (const c of COLORS) reg(`thirdnote.highlight${c[0].toUpperCase()}${c.slice(1)}`, () => highlight({ color: c }));
   reg('thirdnote.highlightWithNote', () => highlight({ withNote: true }));
   reg('thirdnote.saveSelection', saveSelection);
   reg('thirdnote.saveFile', saveFile);
   reg('thirdnote.saveClipboard', saveClipboard);
-  reg('thirdnote.writeNote', () => library.show({ compose: true }));
-  reg('thirdnote.openLibrary', (intent) => library.show(intent && typeof intent === 'object' && !intent.type ? intent : {}));
-  reg('thirdnote.review', () => library.show({ review: true }));
-  reg('thirdnote.searchItems', async () => {
-    const all = store.items.slice().sort((a, b) => b.createdAt - a.createdAt);
-    if (!all.length) return vscode.window.showInformationMessage('Nothing saved yet.');
-    const picked = await vscode.window.showQuickPick(all.map((it) => ({
-      label: `$(${it.kind === 'highlight' ? 'circle-filled' : it.kind === 'note' ? 'note' : it.kind === 'clip' ? 'clippy' : 'code'}) ${itemLabel(it)}`,
-      description: it.source && it.source.path ? `${it.source.path}${it.source.start ? `:${it.source.start.line + 1}` : ''}` : store.collectionName(it.collectionId),
-      detail: it.note && it.kind !== 'note' ? it.note.replace(/\s+/g, ' ').slice(0, 140) : undefined,
-      id: it.id,
-    })), { placeHolder: 'Search highlights, notes, snippets and clips', matchOnDescription: true, matchOnDetail: true, title: 'ThirdNote' });
-    if (picked) openItem(picked.id);
-  });
+  reg('thirdnote.writeNote', () => readerFor(''));
+  reg('thirdnote.openLibrary', () => pages.show('home'));
+  reg('thirdnote.review', () => readerFor('review'));
+  reg('thirdnote.board', () => readerFor('board'));
+  reg('thirdnote.settings', () => pages.show('options'));
   reg('thirdnote.newCollection', newCollection);
+  reg('thirdnote.openSource', (id) => pages.show('reader', `?source=${encodeURIComponent(idOf(id))}`));
+  reg('thirdnote.openTopic', (node) => pages.show('reader', `?topic=${encodeURIComponent(idOf(node))}`));
+  reg('thirdnote.boardTopic', (node) => pages.show('reader', `?topic=${encodeURIComponent(idOf(node))}&mode=board`));
+  reg('thirdnote.reviewTopic', (node) => pages.show('reader', `?topic=${encodeURIComponent(idOf(node))}&mode=review`));
+  reg('thirdnote.collectInto', (node) => {
+    const id = idOf(node);
+    const st = core.storage;
+    const on = !(st.collecting && st.activeTopicId === id);
+    core.setStorage({ activeTopicId: id, collecting: on, vscodeTopicId: id });
+  });
   reg('thirdnote.setCollecting', async () => {
+    const topics = await core.topics();
+    const st = core.storage;
     const items = [
-      { label: '$(circle-slash) Off', description: 'Ask nothing, save to Inbox', id: null },
-      { label: '$(inbox) Inbox', id: INBOX },
-      ...store.collections.map((c) => ({ label: `$(folder) ${c.name}`, id: c.id })),
+      { label: '$(circle-slash) Off', description: 'Save to the last collection used in VS Code', id: null },
+      ...topics.map((t) => ({ label: `$(folder) ${t.name}`, description: `${t.subject}${st.collecting && st.activeTopicId === t.id ? ' · collecting now' : ''}`, id: t.id })),
       { label: '$(new-folder) New collection...', id: '__new__' },
-    ].map((x) => ({ ...x, description: x.description || (x.id && x.id === store.collecting ? 'collecting now' : '') }));
-    const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Every new highlight, snippet and clip goes into...', title: 'ThirdNote: Collecting' });
+    ];
+    const picked = await vscode.window.showQuickPick(items, { placeHolder: 'Every new highlight, snippet and note goes into...', title: 'ThirdNote: Collecting' });
     if (!picked) return;
-    if (picked.id === '__new__') {
-      const c = await newCollection();
-      if (c) store.setCollecting(c.id);
-    } else store.setCollecting(picked.id);
-  });
-  reg('thirdnote.exportMarkdown', () => exportMarkdown(null));
-  reg('thirdnote.exportBackup', async () => {
-    const target = await vscode.window.showSaveDialog({ filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(require('os').homedir() + `/thirdnote-backup-${new Date().toISOString().slice(0, 10)}.json`), title: 'Back up ThirdNote' });
-    if (!target) return;
-    await vscode.workspace.fs.writeFile(target, Buffer.from(JSON.stringify(store.data, null, 1), 'utf8'));
-    vscode.window.showInformationMessage(`ThirdNote backup saved (${store.items.length} items).`);
-  });
-  reg('thirdnote.importBackup', async () => {
-    const [file] = (await vscode.window.showOpenDialog({ filters: { JSON: ['json'] }, canSelectMany: false, title: 'Restore ThirdNote backup' })) || [];
-    if (!file) return;
-    let parsed;
-    try { parsed = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(file)).toString('utf8')); } catch { return vscode.window.showErrorMessage('That file is not a ThirdNote backup.'); }
-    if (!parsed || !Array.isArray(parsed.items)) return vscode.window.showErrorMessage('That file is not a ThirdNote backup.');
-    const how = await vscode.window.showQuickPick([
-      { label: 'Merge', description: 'Add what is missing, keep everything you have', id: 'merge' },
-      { label: 'Replace', description: 'Swap everything for the backup', id: 'replace' },
-    ], { placeHolder: `The backup has ${parsed.items.length} items` });
-    if (!how) return;
-    if (how.id === 'replace') {
-      const ok = await vscode.window.showWarningMessage(`Replace all ${store.items.length} items with the backup?`, { modal: true }, 'Replace');
-      if (ok !== 'Replace') return;
-      store.replaceAll(parsed);
-      highlights.live.clear();
-      vscode.window.showInformationMessage('ThirdNote restored from backup.');
-    } else {
-      const added = store.merge(parsed);
-      vscode.window.showInformationMessage(`ThirdNote: ${added} items added from the backup.`);
-    }
-    highlights.redrawAll();
+    if (picked.id === '__new__') { const t = await newCollection(); if (t) core.setStorage({ activeTopicId: t.id, collecting: true }); }
+    else if (picked.id) core.setStorage({ activeTopicId: picked.id, collecting: true, vscodeTopicId: picked.id });
+    else core.setStorage({ collecting: false });
   });
   reg('thirdnote.removeHighlightAtCursor', async () => {
     const ed = vscode.window.activeTextEditor;
     if (!ed) return;
-    const hits = highlights.at(ed.document, ed.selection.active);
-    if (!hits.length) return;
-    for (const h of hits) { highlights.forget(h.item.id); store.deleteItem(h.item.id); }
+    for (const h of highlights.at(ed.document, ed.selection.active)) {
+      highlights.forget(h.item.id);
+      const rec = core.db.raw('highlights').get(h.item.id);
+      await core.call('deleteHighlight', { id: h.item.id });
+      const m = rec && core.db.raw('messages').get(`${rec.sourceId}|${rec.messageKey}`);
+      if (m && m.role === 'clip') await core.call('deleteMessage', { id: m.id });
+    }
     updateCursorKey();
   });
   const jump = (dir) => {
@@ -373,66 +298,65 @@ async function activate(context) {
   };
   reg('thirdnote.nextHighlight', () => jump(1));
   reg('thirdnote.previousHighlight', () => jump(-1));
-
-  reg('thirdnote.openItem', openItem);
-  reg('thirdnote.editNote', editNote);
-  reg('thirdnote.changeColor', async (arg, all) => {
-    const ids = selectedItemIds(arg, all);
-    if (!ids.length) return;
-    const color = await pickColor('New colour');
-    if (color) for (const id of ids) store.updateItem(id, { color });
+  reg('thirdnote.searchItems', async () => {
+    const lib = await core.call('getAllHighlights');
+    const list = (Array.isArray(lib) ? lib : lib.highlights || []).slice().sort((a, b) => b.createdAt - a.createdAt);
+    if (!list.length) return vscode.window.showInformationMessage('Nothing highlighted yet.');
+    const picked = await vscode.window.showQuickPick(list.map((h) => ({
+      label: firstLine(h.note) || firstLine(h.text),
+      description: h.code ? `${h.code.path}:${(h.code.start?.line ?? 0) + 1}` : '',
+      detail: h.note ? firstLine(h.text, 140) : undefined,
+      id: h.id,
+      iconPath: new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor(`thirdnote.${h.color || 'yellow'}Mark`)),
+    })), { placeHolder: 'Search your highlights', matchOnDescription: true, matchOnDetail: true, title: 'ThirdNote' });
+    if (picked) openItem(picked.id);
   });
-  reg('thirdnote.moveItem', async (arg, all) => {
-    const ids = selectedItemIds(arg, all);
-    if (!ids.length) return;
-    const to = await pickCollection('Move to...', { current: store.item(ids[0]).collectionId || INBOX });
-    if (to) for (const id of ids) store.updateItem(id, { collectionId: to });
+  reg('thirdnote.openItem', openItem);
+  reg('thirdnote.openInReader', (arg) => {
+    const h = core.db.raw('highlights').get(idOf(arg));
+    if (h) pages.show('reader', `?source=${encodeURIComponent(h.sourceId)}&hl=${encodeURIComponent(h.id)}`);
+  });
+  reg('thirdnote.editNote', async (arg) => {
+    const h = core.db.raw('highlights').get(idOf(arg));
+    if (!h) return;
+    const note = await vscode.window.showInputBox({ title: 'Note', value: h.note || '', prompt: 'Leave empty to remove the note' });
+    if (note === undefined) return;
+    await core.call('updateHighlight', { id: h.id, note });
+    core.changed('updateHighlight', { sourceId: h.sourceId });
+  });
+  reg('thirdnote.changeColor', async (arg) => {
+    const h = core.db.raw('highlights').get(idOf(arg));
+    if (!h) return;
+    const color = await pickColor('New colour');
+    if (color) { await core.call('updateHighlight', { id: h.id, color }); core.changed('updateHighlight', { sourceId: h.sourceId }); }
   });
   reg('thirdnote.copyItem', async (arg) => {
-    const it = store.item(idOf(arg));
-    if (!it) return;
-    await vscode.env.clipboard.writeText(it.kind === 'note' ? [it.title, it.note].filter(Boolean).join('\n\n') : it.text);
-    vscode.window.setStatusBarMessage('ThirdNote: copied', 2000);
+    const h = core.db.raw('highlights').get(idOf(arg));
+    if (h) { await vscode.env.clipboard.writeText(h.text || ''); vscode.window.setStatusBarMessage('ThirdNote: copied', 2000); }
   });
   reg('thirdnote.deleteItem', deleteItem);
-  reg('thirdnote.renameCollection', async (node) => {
-    const c = store.collection(idOf(node));
-    if (!c) return;
-    const name = await vscode.window.showInputBox({ title: 'Rename collection', value: c.name, validateInput: (v) => (v.trim() ? null : 'Give it a name') });
-    if (name) store.renameCollection(c.id, name);
-  });
-  reg('thirdnote.deleteCollection', async (node) => {
-    const c = store.collection(idOf(node));
-    if (!c) return;
-    const n = store.itemsIn(c.id).length;
-    if (!n) return store.deleteCollection(c.id);
-    const choice = await vscode.window.showWarningMessage(
-      `Delete the collection "${c.name}"?`,
-      { modal: true, detail: `It has ${n} item${n === 1 ? '' : 's'}.` },
-      'Move items to Inbox', 'Delete items too',
-    );
-    if (!choice) return;
-    if (choice === 'Delete items too') for (const it of store.itemsIn(c.id)) highlights.forget(it.id);
-    store.deleteCollection(c.id, { keepItems: choice === 'Move items to Inbox' });
-  });
-  reg('thirdnote.collectInto', (node) => {
+  reg('thirdnote.moveSource', async (node) => {
     const id = idOf(node);
-    store.setCollecting(store.collecting === id ? null : id);
+    const to = await pickTopic('Move to...');
+    if (to) await core.call('updateSource', { id, topicId: to });
   });
-  reg('thirdnote.reviewCollection', (node) => library.show({ review: true, collectionId: idOf(node) }));
-  reg('thirdnote.exportCollection', (node) => exportMarkdown(idOf(node)));
+  reg('thirdnote.deleteSource', async (node) => {
+    const s = core.db.raw('sources').get(idOf(node));
+    if (!s) return;
+    const ok = await vscode.window.showWarningMessage(`Delete "${s.title}" from ThirdNote?`, { modal: true, detail: 'Its highlights and notes are removed. Your files are not changed.' }, 'Delete');
+    if (ok === 'Delete') await core.call('deleteSource', { id: s.id });
+  });
 
-  // Welcome once, on first install.
-  if (!context.globalState.get('thirdnote.welcomed')) {
-    context.globalState.update('thirdnote.welcomed', true);
-    vscode.window.showInformationMessage('ThirdNote is ready. Select code and press Alt+Shift+H to highlight it.', 'Open Library').then((c) => { if (c) library.show({}); });
+  if (!context.globalState.get('thirdnote.welcomed.v11')) {
+    context.globalState.update('thirdnote.welcomed.v11', true);
+    vscode.window.showInformationMessage('ThirdNote now has the full library, reader, board and review. Right-click code to highlight it.', 'Open Library').then((c) => { if (c) pages.show('home'); });
   }
 
-  return { store, highlights, library }; // used by the tests
+  return { core, highlights, pages }; // used by the tests
 }
 
 function deactivate() {
-  return current ? current.flush() : undefined;
+  if (core) core.flush();
 }
 
 module.exports = { activate, deactivate };

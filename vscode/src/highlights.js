@@ -1,6 +1,6 @@
 // Draws highlights in editors and keeps them attached to the right code while you edit.
 const vscode = require('vscode');
-const { COLORS } = require('./store');
+const COLORS = ['yellow', 'red', 'green', 'blue'];
 
 const CONTEXT_CHARS = 64;
 
@@ -155,13 +155,12 @@ class Highlights {
         if (end <= start) {
           map.delete(id);
           // The code is gone from this file. Keep the item; it shows as detached until undo brings it back.
-          const it = this.store.item(id);
-          if (it) this.store.updateItem(id, { source: { ...it.source, detached: true } }, { quiet: true });
+          if (this.store.item(id)) this.store.updateItem(id, { source: { detached: true } }, { quiet: true });
         } else {
           off.start = start; off.end = end;
-          const it = this.store.item(id);
+          let it = this.store.item(id);
           if (it) {
-            if (it.source && it.source.detached) it.source = { ...it.source, detached: false };
+            if (it.source && it.source.detached) { this.store.updateItem(id, { source: { detached: false } }, { quiet: true }); it = this.store.item(id); }
             this.syncItem(e.document, it, off);
           }
         }
@@ -180,7 +179,7 @@ class Highlights {
         if (!it.source || !it.source.uri) continue;
         if (it.source.uri === oldKey || it.source.uri.startsWith(`${oldKey}/`)) {
           const uri = newUri.toString() + it.source.uri.slice(oldKey.length);
-          it.source = { ...it.source, uri, path: displayPath(vscode.Uri.parse(uri)) };
+          this.store.updateItem(it.id, { source: { uri, path: displayPath(vscode.Uri.parse(uri)) } }, { quiet: true });
           changed = true;
         }
       }

@@ -1,142 +1,101 @@
-// Sidebar views: every collection with its items, and the highlights of the open file.
+// Sidebar: collections with their saved files and notes, and the highlights in the open file.
 const vscode = require('vscode');
-const { INBOX, COLOR_LABELS } = require('./store');
 
-const KIND_ICON = { highlight: 'circle-filled', snippet: 'code', file: 'file-code', note: 'note', clip: 'clippy' };
-const KIND_LABEL = { highlight: 'Highlight', snippet: 'Snippet', file: 'File', note: 'Note', clip: 'Clip' };
-const MIME = 'application/vnd.code.tree.thirdnote.collections';
-
-function firstLine(s, max = 70) {
+const firstLine = (s, max = 70) => {
   const line = String(s || '').split('\n').map((l) => l.trim()).find(Boolean) || '';
   return line.length > max ? `${line.slice(0, max - 1)}...` : line;
-}
-
-function itemLabel(it) {
-  if (it.title) return firstLine(it.title);
-  if (it.kind === 'note') return firstLine(it.note) || 'Untitled note';
-  return firstLine(it.text) || KIND_LABEL[it.kind] || 'Item';
-}
-
-function itemDescription(it) {
-  if (it.source && it.source.path) {
-    const line = it.source.start ? `:${it.source.start.line + 1}` : '';
-    const name = it.source.path.split(/[\\/]/).pop();
-    return `${name}${line}${it.source.detached ? ' (moved or deleted)' : ''}`;
-  }
-  return KIND_LABEL[it.kind] || '';
-}
-
-function itemTooltip(it, store) {
-  const md = new vscode.MarkdownString(undefined, true);
-  md.supportThemeIcons = true;
-  md.appendMarkdown(`**${escapeMd(itemLabel(it))}**  \n`);
-  md.appendMarkdown(`$(${KIND_ICON[it.kind] || 'note'}) ${KIND_LABEL[it.kind] || ''} · ${COLOR_LABELS[it.color] || ''} · ${escapeMd(store.collectionName(it.collectionId))}`);
-  if (it.source && it.source.path) md.appendMarkdown(`  \n$(file) ${escapeMd(it.source.path)}${it.source.start ? `:${it.source.start.line + 1}` : ''}`);
-  if (it.note && it.kind !== 'note') md.appendMarkdown(`\n\n${escapeMd(it.note)}`);
-  const body = it.kind === 'note' ? it.note : it.text;
-  if (body) {
-    const clipped = body.length > 1200 ? `${body.slice(0, 1200)}\n...` : body;
-    if (it.kind === 'note') md.appendMarkdown(`\n\n${escapeMd(clipped)}`);
-    else md.appendCodeblock(clipped, it.language || '');
-  }
-  md.appendMarkdown(`\n\n_${new Date(it.createdAt).toLocaleString()}_`);
-  return md;
-}
-
-function escapeMd(s) {
-  return String(s || '').replace(/[\\`*_{}[\]()#+\-.!|<>]/g, '\\$&');
-}
-
-function makeItemNode(it, store) {
-  const t = new vscode.TreeItem(itemLabel(it), vscode.TreeItemCollapsibleState.None);
-  t.id = `item:${it.id}`;
-  t.description = itemDescription(it);
-  t.tooltip = itemTooltip(it, store);
-  t.iconPath = new vscode.ThemeIcon(KIND_ICON[it.kind] || 'note', new vscode.ThemeColor(`thirdnote.${it.color || 'yellow'}Mark`));
-  t.contextValue = `item-${it.kind}`;
-  t.command = { command: 'thirdnote.openItem', title: 'Open', arguments: [it.id] };
-  return t;
-}
+};
 
 class CollectionsTree {
-  constructor(store) {
-    this.store = store;
+  constructor(core) {
+    this.core = core;
     this._emitter = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._emitter.event;
-    store.onDidChange(() => this._emitter.fire());
-    this.dropMimeTypes = [MIME];
-    this.dragMimeTypes = [MIME];
+    let t;
+    const fire = () => { clearTimeout(t); t = setTimeout(() => this._emitter.fire(), 120); };
+    core.onDidChange(fire);
+    core.onDidChangeStorage(fire);
   }
 
-  getTreeItem(node) {
-    if (node.type === 'item') {
-      const it = this.store.item(node.id);
-      return it ? makeItemNode(it, this.store) : new vscode.TreeItem('(removed)');
-    }
-    const isInbox = node.id === INBOX;
-    const count = this.store.itemsIn(node.id).length;
-    const collecting = this.store.collecting === node.id;
-    const t = new vscode.TreeItem(
-      isInbox ? 'Inbox' : this.store.collectionName(node.id),
-      count ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
-    );
-    t.id = `col:${node.id}`;
-    t.description = `${count}${collecting ? ' · collecting' : ''}`;
-    t.iconPath = new vscode.ThemeIcon(collecting ? 'target' : isInbox ? 'inbox' : 'folder', collecting ? new vscode.ThemeColor('thirdnote.yellowMark') : undefined);
-    t.contextValue = isInbox ? 'collection-inbox' : 'collection';
-    t.tooltip = collecting ? 'New saves go here' : undefined;
-    return t;
-  }
-
-  getChildren(node) {
+  async getChildren(node) {
+    const db = this.core.db;
     if (!node) {
-      return [{ type: 'collection', id: INBOX }, ...this.store.collections.map((c) => ({ type: 'collection', id: c.id }))];
+      const topics = await this.core.topics();
+      return topics.map((t) => ({ type: 'topic', id: t.id, topic: t }));
     }
-    if (node.type === 'collection') return this.store.itemsIn(node.id).map((it) => ({ type: 'item', id: it.id }));
+    if (node.type === 'topic') {
+      return [...db.raw('sources').values()]
+        .filter((s) => s.topicId === node.id && !s.deletedAt)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+        .map((s) => ({ type: 'source', id: s.id, source: s }));
+    }
+    if (node.type === 'source') {
+      const hls = [...db.raw('highlights').values()].filter((h) => h.sourceId === node.id).sort((a, b) => (a.code?.start?.line ?? 0) - (b.code?.start?.line ?? 0) || a.createdAt - b.createdAt);
+      if ((node.source.site === 'VS Code' || node.source.site === 'code')) return hls.map((h) => ({ type: 'hl', id: h.id, hl: h }));
+      return [];
+    }
     return [];
   }
 
-  getParent(node) {
-    if (node.type === 'item') {
-      const it = this.store.item(node.id);
-      return { type: 'collection', id: (it && it.collectionId) || INBOX };
+  getTreeItem(node) {
+    const db = this.core.db;
+    const st = this.core.storage;
+    if (node.type === 'topic') {
+      const t = node.topic;
+      const n = [...db.raw('sources').values()].filter((s) => s.topicId === t.id && !s.deletedAt).length;
+      const collecting = st.collecting && st.activeTopicId === t.id;
+      const item = new vscode.TreeItem(t.name, n ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
+      item.id = `topic:${t.id}`;
+      item.description = `${t.subject}${collecting ? ' · collecting' : ''}`;
+      item.iconPath = new vscode.ThemeIcon(collecting ? 'target' : 'folder', collecting ? new vscode.ThemeColor('thirdnote.yellowMark') : undefined);
+      item.contextValue = 'topic';
+      item.tooltip = `${t.subject} / ${t.name}`;
+      return item;
     }
+    if (node.type === 'source') {
+      const s = node.source;
+      const code = s.site === 'VS Code' || s.site === 'code';
+      const hlCount = [...db.raw('highlights').values()].filter((h) => h.sourceId === s.id).length;
+      const msgCount = [...db.raw('messages').values()].filter((m) => m.sourceId === s.id && !m.excluded).length;
+      const item = new vscode.TreeItem(code ? s.title.split(/[\\/]/).pop() : s.title, code && hlCount ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
+      item.id = `src:${s.id}`;
+      item.description = code ? `${s.title.includes('/') ? s.title.slice(0, s.title.lastIndexOf('/')) : ''}` : `${msgCount} ${s.kind === 'note' ? 'notes' : 'items'}`;
+      item.iconPath = new vscode.ThemeIcon(code ? 'file-code' : s.kind === 'note' ? 'notebook' : s.kind === 'chat' ? 'comment-discussion' : 'globe');
+      item.contextValue = 'source';
+      item.tooltip = s.url ? `${s.title}\n${s.url}` : s.title;
+      item.command = { command: 'thirdnote.openSource', title: 'Open', arguments: [s.id] };
+      return item;
+    }
+    const h = node.hl;
+    const item = new vscode.TreeItem(firstLine(h.note) || firstLine(h.text), vscode.TreeItemCollapsibleState.None);
+    item.id = `hl:${h.id}`;
+    item.description = h.code && h.code.start ? `line ${h.code.start.line + 1}${h.code.detached ? ' (moved or deleted)' : ''}` : '';
+    item.iconPath = new vscode.ThemeIcon(h.code ? 'circle-filled' : 'code', new vscode.ThemeColor(`thirdnote.${h.color || 'yellow'}Mark`));
+    const md = new vscode.MarkdownString();
+    if (h.note) md.appendText(`${h.note}\n\n`);
+    md.appendCodeblock(String(h.text || '').slice(0, 1200), (h.code && h.code.language) || '');
+    item.tooltip = md;
+    item.contextValue = h.code ? 'item-highlight' : 'item-clip';
+    item.command = { command: 'thirdnote.openItem', title: 'Open', arguments: [h.id] };
+    return item;
+  }
+
+  getParent(node) {
+    if (node.type === 'hl') { const s = this.core.db.raw('sources').get(node.hl.sourceId); return s ? { type: 'source', id: s.id, source: s } : undefined; }
+    if (node.type === 'source') { return { type: 'topic', id: node.source.topicId, topic: { id: node.source.topicId, name: '', subject: '' } }; }
     return undefined;
-  }
-
-  handleDrag(nodes, dataTransfer) {
-    const ids = nodes.filter((n) => n.type === 'item').map((n) => n.id);
-    if (ids.length) dataTransfer.set(MIME, new vscode.DataTransferItem(ids));
-  }
-
-  async handleDrop(target, dataTransfer) {
-    const entry = dataTransfer.get(MIME);
-    if (!entry || !target) return;
-    const ids = typeof entry.value === 'string' ? JSON.parse(entry.value) : entry.value;
-    const colId = target.type === 'collection' ? target.id : ((this.store.item(target.id) || {}).collectionId || INBOX);
-    for (const id of ids || []) this.store.updateItem(id, { collectionId: colId });
   }
 }
 
 class ThisFileTree {
-  constructor(store, highlights) {
-    this.store = store;
+  constructor(core, highlights) {
+    this.core = core;
     this.highlights = highlights;
     this._emitter = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._emitter.event;
     const fire = () => this._emitter.fire();
-    store.onDidChange(fire);
+    core.onDidChange(fire);
     vscode.window.onDidChangeActiveTextEditor(fire);
-  }
-
-  getTreeItem(id) {
-    const it = this.store.item(id);
-    if (!it) return new vscode.TreeItem('(removed)');
-    const t = makeItemNode(it, this.store);
-    t.id = `file:${it.id}`;
-    t.description = it.source && it.source.start ? `line ${it.source.start.line + 1}` : '';
-    if (it.note) t.description += ` · ${firstLine(it.note, 40)}`;
-    return t;
   }
 
   getChildren(id) {
@@ -144,10 +103,21 @@ class ThisFileTree {
     const ed = vscode.window.activeTextEditor;
     if (!ed) return [];
     const placed = this.highlights.rangesFor(ed.document).map((r) => r.item.id);
-    const placedSet = new Set(placed);
-    const rest = this.store.itemsForUri(ed.document.uri.toString()).filter((i) => !placedSet.has(i.id)).map((i) => i.id);
-    return [...placed, ...rest];
+    const set = new Set(placed);
+    return [...placed, ...this.core.itemsForUri(ed.document.uri.toString()).filter((i) => !set.has(i.id)).map((i) => i.id)];
+  }
+
+  getTreeItem(id) {
+    const it = this.core.item(id);
+    if (!it) return new vscode.TreeItem('(removed)');
+    const t = new vscode.TreeItem(firstLine(it.note) || firstLine(it.text), vscode.TreeItemCollapsibleState.None);
+    t.id = `file:${id}`;
+    t.description = it.source && it.source.start ? `line ${it.source.start.line + 1}` : '';
+    t.iconPath = new vscode.ThemeIcon('circle-filled', new vscode.ThemeColor(`thirdnote.${it.color}Mark`));
+    t.contextValue = 'item-highlight';
+    t.command = { command: 'thirdnote.openItem', title: 'Open', arguments: [id] };
+    return t;
   }
 }
 
-module.exports = { CollectionsTree, ThisFileTree, itemLabel, firstLine, KIND_LABEL };
+module.exports = { CollectionsTree, ThisFileTree, firstLine };
