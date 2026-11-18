@@ -430,9 +430,9 @@
     const m = location.hostname === 'docs.google.com' && location.pathname.match(/^\/document\/(?:u\/\d+\/)?d\/([\w-]+)/);
     if (!m) return null;
     try {
-      const res = await fetch(`/document/d/${m[1]}/export?format=html`, { credentials: 'include' });
-      if (!res.ok) return null;
-      const html = NMSanitize.cleanHtml(new DOMParser().parseFromString(await res.text(), 'text/html').body.innerHTML);
+      const raw = await googleText(`/document/d/${m[1]}/export?format=html`);
+      if (!raw) return null;
+      const html = NMSanitize.cleanHtml(new DOMParser().parseFromString(raw, 'text/html').body.innerHTML);
       const tmp = document.createElement('div');
       tmp.innerHTML = html;
       const text = NMSanitize.toText(tmp);
@@ -449,9 +449,12 @@
     if (!m) return null;
     const gid = (location.hash.match(/gid=(\d+)/) || location.search.match(/gid=(\d+)/) || [])[1] || '0';
     try {
-      const res = await fetch(`/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`, { credentials: 'include' });
-      if (!res.ok) return null;
-      let rows = parseCsv(await res.text());
+      // gviz answers on docs.google.com itself; the export link redirects
+      // elsewhere, so it goes through the background.
+      const csv = (await googleText(`/spreadsheets/d/${m[1]}/gviz/tq?tqx=out:csv&gid=${gid}`))
+        || (await googleText(`/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`));
+      if (!csv) return null;
+      let rows = parseCsv(csv);
       // Drop empty rows and columns at the edges.
       while (rows.length && rows[rows.length - 1].every((c) => !c.trim())) rows.pop();
       const width = Math.max(0, ...rows.map((r) => r.reduce((n, c, i) => (c.trim() ? i + 1 : n), 0)));
@@ -465,6 +468,28 @@
       return { html, text: rows.map((r) => r.join('\t')).join('\n') };
     } catch {
       return null;
+    }
+  }
+
+  // Text from a Google Docs address: same-site first, then via the
+  // background when the answer comes from another Google domain.
+  async function googleText(path) {
+    const url = new URL(path, location.origin).href;
+    // A sign-in or error page comes back as HTML; a CSV never starts with '<'.
+    const csv = /csv/.test(path);
+    const usable = (text) => !!text && (csv ? !/^\s*</.test(text) : /<(body|p|table|h\d)\b/i.test(text));
+    try {
+      const res = await fetch(url, { credentials: 'include' });
+      if (res.ok) {
+        const text = await res.text();
+        if (usable(text)) return text;
+      }
+    } catch { /* blocked: try the background */ }
+    try {
+      const text = await call('fetchText', { url });
+      return usable(text) ? text : '';
+    } catch {
+      return '';
     }
   }
 

@@ -46,6 +46,7 @@ async function handle({ method, args = {} }, sender) {
       return { ok: true, result: dataUrl };
     }
     if (method === 'fetchImage') return { ok: true, result: await fetchImage(args.url) };
+    if (method === 'fetchText') return { ok: true, result: await fetchText(args.url) };
     if (method === 'readFrames') return { ok: true, result: await readFrames(sender.tab?.id, args.area) };
     const fn = api[method];
     if (!fn) throw new Error(`Unknown method: ${method}`);
@@ -68,6 +69,19 @@ function broadcast(method, args) {
       if (tab.id) send(tab.id, msg);
     }
   });
+}
+
+// A Google document's export, for Save page. Fetched here because exports
+// redirect to another Google domain that a page's own script may not read.
+// Only Google Docs addresses are allowed.
+async function fetchText(url) {
+  if (!/^https:\/\/docs\.google\.com\//.test(url || '')) return '';
+  try {
+    const res = await fetch(url, { credentials: 'include' });
+    return res.ok ? await res.text() : '';
+  } catch {
+    return '';
+  }
 }
 
 // What the page shows inside its frames (Excel on the web and other apps
