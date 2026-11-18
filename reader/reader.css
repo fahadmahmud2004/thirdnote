@@ -204,7 +204,8 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .msg.clip .msg-body.live, .msg.note .msg-body.live { background: transparent; padding: 2px 0 2px 16px; border-radius: 0; box-shadow: inset 3px 0 0 var(--bar, var(--sep));
   font-size: 16.5px; line-height: 1.65; outline: none; cursor: text; min-height: 1.6em; position: relative; }
 .msg.note .msg-body.live { --bar: color-mix(in srgb, var(--sw-yellow) 70%, transparent); }
-.msg-body.live:focus { box-shadow: inset 3px 0 0 var(--focus); }
+.msg.clip .msg-body.live:focus, .msg.note .msg-body.live:focus { box-shadow: inset 3px 0 0 var(--focus); }
+.msg-body.live { outline: none; }
 .msg-body.live > p:last-child:has(> br:only-child) { margin-bottom: 0; }
 .msg.clip .msg-head, .msg.note .msg-head { min-height: 22px; margin-bottom: 4px; }
 .save-state { text-transform: none; letter-spacing: 0; font-weight: 550; font-size: 11.5px; color: var(--ok); opacity: 0; transition: opacity .2s; }
@@ -212,7 +213,12 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .composer-end { margin-top: 30px; }
 .msg-body.compose { min-height: 120px; }
 .msg-body.compose.is-empty::before { content: attr(data-placeholder); color: var(--faint); pointer-events: none; position: absolute; }
-@media print { .msg-body.live { box-shadow: inset 3px 0 0 var(--bar, #dcd6cb) !important; } }
+@media print {
+  .msg-body.live { box-shadow: none !important; }
+  .msg.clip .msg-body.live, .msg.note .msg-body.live { box-shadow: inset 3px 0 0 var(--bar, #dcd6cb) !important; }
+  /* Shadows print as grey bands; a thin border reads the same on paper. */
+  .msg-body [data-post] { box-shadow: none !important; border: 1px solid #e3ded4; break-inside: avoid; }
+}
 
 
 /* Saved feeds: each post as a card. Header with the poster's picture, name
