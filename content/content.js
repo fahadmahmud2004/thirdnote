@@ -356,7 +356,7 @@
       return;
     }
     // Read the page first: feeds keep changing while a dialog is open.
-    let page = await googleDoc();
+    let page = (await googleDoc()) || (await googleSheet());
     if (!page && rememberFeed(true)) {
       // Every post seen while scrolling, not only the ones still on the page.
       page = NMSanitize.buildFeed([...feedSeen.cards.values()], feedSeen.tiles, feedSeen.top);
@@ -424,6 +424,64 @@
     } catch {
       return null;
     }
+  }
+
+  // Google Sheets also draws on a canvas. The open sheet is fetched as CSV
+  // (File > Download > CSV) and kept as a table.
+  async function googleSheet() {
+    const m = location.hostname === 'docs.google.com' && location.pathname.match(/^\/spreadsheets\/(?:u\/\d+\/)?d\/([\w-]+)/);
+    if (!m) return null;
+    const gid = (location.hash.match(/gid=(\d+)/) || location.search.match(/gid=(\d+)/) || [])[1] || '0';
+    try {
+      const res = await fetch(`/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`, { credentials: 'include' });
+      if (!res.ok) return null;
+      let rows = parseCsv(await res.text());
+      // Drop empty rows and columns at the edges.
+      while (rows.length && rows[rows.length - 1].every((c) => !c.trim())) rows.pop();
+      const width = Math.max(0, ...rows.map((r) => r.reduce((n, c, i) => (c.trim() ? i + 1 : n), 0)));
+      rows = rows.slice(0, 3000).map((r) => Array.from({ length: width }, (_, i) => r[i] || ''));
+      if (!rows.length || !width) return null;
+      const esc = NM.escapeHtml;
+      const tab = document.querySelector('.docs-sheet-active-tab .docs-sheet-tab-name')?.textContent?.trim();
+      const [head, ...body] = rows;
+      const html = `${tab ? `<h3>${esc(tab)}</h3>` : ''}<table><thead><tr>${head.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead>`
+        + `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      return { html, text: rows.map((r) => r.join('\t')).join('\n') };
+    } catch {
+      return null;
+    }
+  }
+
+  function parseCsv(src) {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let quoted = false;
+    for (let i = 0; i < src.length; i++) {
+      const ch = src[i];
+      if (quoted) {
+        if (ch === '"' && src[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else if (ch === '"') quoted = false;
+        else cell += ch;
+      } else if (ch === '"') quoted = true;
+      else if (ch === ',') {
+        row.push(cell);
+        cell = '';
+      } else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && src[i + 1] === '\n') i++;
+        row.push(cell);
+        rows.push(row);
+        row = [];
+        cell = '';
+      } else cell += ch;
+    }
+    if (cell || row.length) {
+      row.push(cell);
+      rows.push(row);
+    }
+    return rows;
   }
 
   function stamp(ms) {

@@ -278,3 +278,9 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .msg-body [data-post="msg"] [data-part="media"] img, .msg-body [data-post="mine"] [data-part="media"] img { max-height: 320px; }
 .msg-body [data-part="day"] { text-align: center; margin: 14px 0 10px !important; }
 .msg-body [data-part="day"] small { display: inline-block; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 2px 12px; }
+
+/* The copy button that shows beside the block you point at */
+.blk-copy { position: absolute; z-index: 30; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px;
+  background: var(--surface); color: var(--muted); box-shadow: var(--shadow-sm); cursor: pointer; }
+.blk-copy:hover { color: var(--text); background: var(--hover); }
+@media print { .blk-copy { display: none !important; } }

@@ -256,6 +256,7 @@ function renderHero() {
     meta.append(h('span', {}, st.topic.subject), dot(), h('span', {}, NM.count(st.sections.length, 'sp.sources', 'sp.source1')),
       dot(), h('span', {}, NM.count(total, 'sp.hls', 'sp.hl1')));
   }
+  meta.append(dot(), h('button', { class: 'link-btn no-print', onclick: copyAll }, ic('copy', 13), t('rd.copyAll')));
   heroEl.replaceChildren(title, meta);
 }
 
@@ -431,6 +432,10 @@ function renderMessage(sec, m) {
   const article = h('article', { class: `msg ${m.role}${m.excluded ? ' excluded' : ''}`, 'data-hidden': `· ${t('rd.hidden')}` });
   const state = h('span', { class: 'save-state' });
   const acts = h('span', { class: 'acts' },
+    h('button', {
+      class: 'icon-btn small', title: t('rd.copy'),
+      onclick: () => copyBlock(body, true),
+    }, ic('copy', 14)),
     h('button', {
       class: 'btn small ghost',
       title: m.excluded ? null : t('rd.hideTip'),
@@ -1028,3 +1033,99 @@ if (!st.id) {
     mainEl.replaceChildren(h('div', { class: 'empty' }, h('h3', {}, t('rd.notFound')), h('p', {}, String(err.message || err))));
   });
 }
+
+// ---------------------------------------------------------------------------
+// Copy: a whole message, everything on the page, or one block (a paragraph,
+// a question, a post) with the small button that shows when you point at it.
+// Formatting comes along, so it pastes well into Docs or Word.
+
+function copyHtmlOf(el, inner) {
+  const c = el.cloneNode(true);
+  c.querySelectorAll('mark.nm-hl').forEach((m) => m.replaceWith(...m.childNodes));
+  c.querySelectorAll('.blk-copy, button').forEach((x) => x.remove());
+  [c, ...c.querySelectorAll('[contenteditable], [data-rich], [spellcheck]')].forEach((x) => {
+    x.removeAttribute('contenteditable');
+    x.removeAttribute('data-rich');
+    x.removeAttribute('spellcheck');
+  });
+  return inner ? c.innerHTML : c.outerHTML;
+}
+
+async function writeClipboard(html, text, el) {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([text], { type: 'text/plain' }),
+    })]);
+    return true;
+  } catch { /* no clipboard access: copy the old way */ }
+  try {
+    const sel = getSelection();
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    const ok = document.execCommand('copy');
+    sel.removeAllRanges();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+async function copyBlock(el, inner = false) {
+  const ok = await writeClipboard(copyHtmlOf(el, inner), (el.innerText || '').trim(), el);
+  toast(t(ok ? 'rd.copied' : 'rd.copyFailed'));
+  return ok;
+}
+
+async function copyAll() {
+  const bodies = [...document.querySelectorAll('#main .msg:not(.excluded) .msg-body:not(.compose)')];
+  if (!bodies.length) return;
+  const html = bodies.map((b) => copyHtmlOf(b, true)).join('<hr>');
+  const text = bodies.map((b) => (b.innerText || '').trim()).filter(Boolean).join('\n\n');
+  const holder = h('div', { style: 'position:fixed;left:-9999px;top:0' });
+  holder.innerHTML = html;
+  document.body.append(holder);
+  const ok = await writeClipboard(html, text, holder);
+  holder.remove();
+  toast(t(ok ? 'rd.copiedAll' : 'rd.copyFailed'));
+}
+
+const BLOCK_SEL = '[data-post], p, h1, h2, h3, h4, li, blockquote, pre, table, figure';
+const blkBtn = h('button', { class: 'blk-copy no-print', type: 'button', hidden: true, title: t('rd.copy') }, ic('copy', 14));
+let blkTarget = null;
+let blkHide = 0;
+document.body.append(blkBtn);
+blkBtn.addEventListener('mousedown', (e) => e.preventDefault());
+blkBtn.addEventListener('mouseenter', () => clearTimeout(blkHide));
+blkBtn.addEventListener('mouseleave', () => { blkHide = setTimeout(() => { blkBtn.hidden = true; }, 200); });
+blkBtn.addEventListener('click', async () => {
+  if (!blkTarget) return;
+  if (await copyBlock(blkTarget)) {
+    blkBtn.replaceChildren(ic('check', 14));
+    setTimeout(() => blkBtn.replaceChildren(ic('copy', 14)), 1200);
+  }
+});
+
+// The block under the pointer: a whole post or message card when inside
+// one, else the paragraph, heading, list item or quote.
+document.addEventListener('mouseover', (e) => {
+  if (blkBtn.contains(e.target)) return;
+  const body = e.target.closest?.('#main .msg-body:not(.compose)');
+  const block = body && (e.target.closest('[data-post]') || e.target.closest(BLOCK_SEL));
+  if (!block || !body.contains(block) || !(block.innerText || '').trim()) {
+    clearTimeout(blkHide);
+    blkHide = setTimeout(() => { blkBtn.hidden = true; }, 250);
+    return;
+  }
+  clearTimeout(blkHide);
+  blkTarget = block;
+  blkBtn.hidden = false;
+  const r = block.getBoundingClientRect();
+  const b = body.getBoundingClientRect();
+  blkBtn.style.top = `${r.top + scrollY + 2}px`;
+  // Beside the text when there is room, else inside the block's corner.
+  const left = b.right + 44 < innerWidth - 16 ? b.right + 8 : r.right - 32;
+  blkBtn.style.left = `${left + scrollX}px`;
+});
