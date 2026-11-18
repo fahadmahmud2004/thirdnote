@@ -69,6 +69,33 @@
       }
     }, 800);
     onRoute();
+    // Feeds drop posts that scroll far away, so posts are remembered as the
+    // user scrolls and all of them go into Save page.
+    addEventListener('scroll', () => {
+      clearTimeout(feedTimer);
+      feedTimer = setTimeout(rememberFeed, 700);
+    }, { passive: true, capture: true });
+    setTimeout(rememberFeed, 2500);
+  }
+
+  const feedSeen = { page: null, tiles: false, cards: new Map() }; // key -> card html, in the order first seen
+  let feedTimer = 0;
+
+  function rememberFeed(all = false) {
+    if (dead || document.hidden) return null;
+    if (feedSeen.page !== pageKey()) {
+      feedSeen.page = pageKey();
+      feedSeen.cards.clear();
+    }
+    let snap = null;
+    try {
+      snap = NMSanitize.feedCards(document, !all);
+    } catch { /* a page we can't read as a feed */ }
+    if (!snap) return null;
+    feedSeen.tiles = snap.tiles;
+    for (const c of snap.cards) feedSeen.cards.set(c.key, c.html);
+    while (feedSeen.cards.size > 400) feedSeen.cards.delete(feedSeen.cards.keys().next().value);
+    return snap;
   }
 
   function applyTheme() {
@@ -134,7 +161,8 @@
         await loadPage();
       }
     } catch (err) {
-      console.warn('[ThirdNote]', err);
+      // An old copy of the script in a tab opened before an update: quiet.
+      if (!dead) console.warn('[ThirdNote]', err);
     }
     renderPill();
   }
@@ -326,7 +354,12 @@
       return;
     }
     // Read the page first: feeds keep changing while a dialog is open.
-    const { html: raw, text } = (await googleDoc()) || NMSanitize.fromPage(document);
+    let page = await googleDoc();
+    if (!page && rememberFeed(true)) {
+      // Every post seen while scrolling, not only the ones still on the page.
+      page = NMSanitize.buildFeed([...feedSeen.cards.values()], feedSeen.tiles);
+    }
+    const { html: raw, text } = page || NMSanitize.fromPage(document);
     // A page of pictures (Pinterest, a gallery) is worth saving without text.
     if (!text && !/<img\b/i.test(raw)) throw new Error(t('err.emptyPage'));
     const topic = destination() || (await pickTopic(t('picker.savePage')));
