@@ -98,8 +98,8 @@
   }
 
   // Where the text actually sits inside a turn, as a share of the turn's width.
-  function textBox(turn) {
-    const outer = rectOf(turn);
+  function textBox(turn, ref = turn) {
+    const outer = rectOf(ref);
     let left = Infinity;
     let right = -Infinity;
     const walker = document.createTreeWalker(turn, NodeFilter.SHOW_TEXT);
@@ -135,6 +135,34 @@
     if (roles.every((r) => !r)) roles.forEach((_, i) => { roles[i] = i % 2 ? 'assistant' : 'user'; });
     else roles.forEach((r, i) => { if (!r) roles[i] = 'assistant'; });
     return turns.map((el, i) => ({ el, role: roles[i], key: `${roles[i]}-${i}`, contentEl: el, imgRoot: el }));
+  }
+
+  // Any messaging site (Telegram, WhatsApp, Messenger): the messages of the
+  // open chat, one block each. Lists grouped by day are opened up so each
+  // message stands alone; mine marks the messages the user sent (bubbles on
+  // the right).
+  function chatTurns() {
+    const box = composer();
+    // Chat apps keep the message box at the bottom; a search box at the top
+    // (Google) is not one.
+    if (!box || box.getBoundingClientRect().top < innerHeight * 0.55) return null;
+    const list = transcript();
+    if (!list) return null;
+    let turns = textKids(list, box);
+    for (let i = 0; i < 3 && turns.length <= 8 && turns.some((t) => textKids(t, box).length >= 3); i++) {
+      turns = turns.flatMap((t) => {
+        const kids = textKids(t, box);
+        return kids.length >= 3 ? kids : [t];
+      });
+    }
+    if (turns.length < 3) return null;
+    return turns.map((el) => {
+      const { user, ai } = hintScore(el);
+      // Position across the whole chat, since a bubble's own box hugs it.
+      const b = textBox(el, list);
+      const mine = user > ai || (!!b && b.left > 0.3 && b.width < 0.75);
+      return { el, mine };
+    });
   }
 
   // Runs each layout reader and keeps the one that found the most messages,
@@ -354,6 +382,7 @@
   globalThis.NMAdapters = {
     list,
     generalMessages,
+    chatTurns,
     detect(loc) {
       // Lets the local test pages in /test pretend to be a chat site.
       const local = loc.hostname === 'localhost' || loc.hostname === '127.0.0.1';

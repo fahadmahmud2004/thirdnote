@@ -361,6 +361,12 @@
       // Every post seen while scrolling, not only the ones still on the page.
       page = NMSanitize.buildFeed([...feedSeen.cards.values()], feedSeen.tiles, feedSeen.top);
     }
+    if (!page) {
+      // A messaging site (Telegram, WhatsApp): the open chat's messages.
+      const turns = NMAdapters.chatTurns?.();
+      const cards = turns ? NMSanitize.chatCards(turns) : [];
+      if (cards.length >= 3) page = NMSanitize.buildFeed(cards, false);
+    }
     const { html: raw, text } = page || NMSanitize.fromPage(document);
     // A page of pictures (Pinterest, a gallery) is worth saving without text.
     if (!text && !/<img\b/i.test(raw)) throw new Error(t('err.emptyPage'));

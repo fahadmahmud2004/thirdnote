@@ -262,3 +262,19 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .msg-body [data-part="strip"] [data-part="title"] { font-weight: 600; -webkit-line-clamp: 1; }
 .msg-body [data-part="strip"] [data-part="stats"] { display: none; }
 @media print { .msg-body [data-part="strip"] { grid-template-columns: repeat(5, 1fr); } }
+
+/* A saved chat from a messaging site: compact bubbles, mine on the right. */
+.msg-body [data-post="msg"], .msg-body [data-post="mine"] { width: fit-content; max-width: min(78%, 620px); padding: 9px 13px 9px; margin: 0 0 8px;
+  font-size: 14.5px; line-height: 1.5; border-radius: 14px; }
+.msg-body [data-post="mine"] { margin-left: auto; background: color-mix(in srgb, var(--focus) 12%, var(--surface)); }
+.msg-body [data-post="msg"] [data-part="head"], .msg-body [data-post="mine"] [data-part="head"] { margin-bottom: 4px; gap: 8px; }
+.msg-body [data-post="msg"] img[data-part="avatar"] { width: 24px !important; height: 24px; }
+.msg-body [data-post="msg"] [data-part="who"] strong { font-size: 13px; color: var(--focus); }
+.msg-body [data-post="mine"] [data-part="head"] { justify-content: flex-end; }
+.msg-body [data-post="msg"] > p, .msg-body [data-post="mine"] > p { margin: 0 0 0.3em; }
+.msg-body [data-post="msg"] blockquote, .msg-body [data-post="mine"] blockquote { margin: 2px 0 6px; padding: 4px 10px; font-size: 13px;
+  border-left: 3px solid var(--focus); background: color-mix(in srgb, var(--focus) 7%, transparent); border-radius: 0 8px 8px 0; color: var(--muted); }
+.msg-body [data-post="msg"] [data-part="media"], .msg-body [data-post="mine"] [data-part="media"] { margin: 6px 0 2px; }
+.msg-body [data-post="msg"] [data-part="media"] img, .msg-body [data-post="mine"] [data-part="media"] img { max-height: 320px; }
+.msg-body [data-part="day"] { text-align: center; margin: 14px 0 10px !important; }
+.msg-body [data-part="day"] small { display: inline-block; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--surface-2); border-radius: 999px; padding: 2px 12px; }
