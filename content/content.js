@@ -463,8 +463,24 @@
       const esc = NM.escapeHtml;
       const tab = document.querySelector('.docs-sheet-active-tab .docs-sheet-tab-name')?.textContent?.trim();
       const [head, ...body] = rows;
-      const html = `${tab ? `<h3>${esc(tab)}</h3>` : ''}<table><thead><tr>${head.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead>`
-        + `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      const title = tab ? `<h3>${esc(tab)}</h3>` : '';
+      let html;
+      if (width > 6) {
+        // Too many columns to read across: one card per row, each column
+        // as a labelled line, empty cells left out. Named after the column
+        // that holds a name, when there is one.
+        let key = head.findIndex((h) => /\bname\b|নাম|title|শিরোনাম/i.test(h));
+        if (key < 0) key = head.findIndex((h, i) => i > 0 || !/time|date|তারিখ/i.test(h));
+        html = `${title}${body.map((r, n) => {
+          const name = (r[key] || '').trim() || `#${n + 1}`;
+          const fields = head.map((h, i) => (i !== key && r[i].trim()
+            ? `<dt>${esc(h.trim() || `Column ${i + 1}`)}</dt><dd>${esc(r[i])}</dd>` : '')).join('');
+          return `<div data-post="row"><p data-part="title"><strong>${esc(name)}</strong> <small>#${n + 1}</small></p><dl>${fields}</dl></div>`;
+        }).join('')}`;
+      } else {
+        html = `${title}<table><thead><tr>${head.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead>`
+          + `<tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+      }
       return { html, text: rows.map((r) => r.join('\t')).join('\n') };
     } catch {
       return null;

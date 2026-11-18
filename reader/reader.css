@@ -284,3 +284,17 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
   background: var(--surface); color: var(--muted); box-shadow: var(--shadow-sm); cursor: pointer; }
 .blk-copy:hover { color: var(--text); background: var(--hover); }
 @media print { .blk-copy { display: none !important; } }
+
+/* Tables keep readable columns and scroll sideways instead of squeezing. */
+.msg-body table th, .msg-body table td { min-width: 120px; max-width: 360px; vertical-align: top; overflow-wrap: normal; word-break: normal; }
+.msg-body table thead th { position: sticky; top: 0; background: var(--surface-2); }
+
+/* A spreadsheet row as a card: its name on top, then each column. */
+.msg-body [data-post="row"] { padding: 14px 18px 12px; margin: 0 0 12px; font-size: 14px; }
+.msg-body [data-post="row"] [data-part="title"] { margin: 0 0 8px !important; font-size: 15.5px; }
+.msg-body [data-post="row"] [data-part="title"] small { color: var(--faint); font-weight: 500; font-size: 12px; margin-left: 4px; }
+.msg-body [data-post="row"] dl { display: grid; grid-template-columns: minmax(120px, 32%) 1fr; gap: 6px 16px; margin: 0; }
+.msg-body [data-post="row"] dt { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.msg-body [data-post="row"] dd { margin: 0; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 600px) { .msg-body [data-post="row"] dl { grid-template-columns: 1fr; gap: 2px; } .msg-body [data-post="row"] dd { margin-bottom: 6px; } }
+@media print { .msg-body [data-post="row"] { break-inside: avoid; } }
