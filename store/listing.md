@@ -49,6 +49,15 @@ SCREENSHOTS
 - Add a note and it goes straight into the right collection.
 - On video sites, the video timestamp is saved with the screenshot.
 
+SAVE ANY PAGE
+- One click (or Alt+Shift+P) saves the whole page as a clean, readable copy, without menus, ads or sidebars.
+- Social feeds become one tidy card per post: who posted, the text, photos and a link back. Posts you scrolled past are kept too.
+- Video and picture grids become neat cards with titles and thumbnails.
+- Chats in messaging web apps become message bubbles with names, replies and times.
+- Online documents, forms and spreadsheets are saved too; wide sheets turn into one card per row.
+- Save the same page again later to keep both copies, or replace the old one.
+- Drag any picture from a page onto a collection to keep it.
+
 BOARD
 - Every collection has its own canvas.
 - Your screenshots, clips, notes and saved chats appear as cards.
@@ -60,7 +69,14 @@ REVIEW
 - Read saved chats as clean notes with your highlights.
 - See only what you marked, filtered by colour.
 - Practise with flashcards: your question is the prompt, your highlight is the answer.
+- Copy one block, one message or the whole page with formatting, ready to paste.
+- Copy or download any saved picture.
 - Export to Markdown or PDF.
+
+YOUR LIBRARY
+- A full-page home for everything you saved: collections, recent items and highlights.
+- Search finds any word, in any order.
+- Click any saved text to edit it, right where you read it.
 
 PRIVATE BY DESIGN
 - Everything is stored in your own browser. No account, no servers, no tracking.
@@ -82,7 +98,7 @@ Made by Fahad Mahmud (fahadmahmud.com).
 **Single purpose**
 
 ```
-ThirdNote lets users highlight and save text, AI chat conversations, notes and screenshots from web pages into local collections, arrange them on a board, and review them later.
+ThirdNote lets users highlight and save text, whole pages, AI chat conversations, notes and screenshots from web pages into local collections, arrange them on a board, and review them later.
 ```
 
 **Permission justifications**
@@ -104,12 +120,17 @@ The extension's library, collection picker and note composer are shown in the si
 
 contextMenus
 ```
-Adds "Save selection to ThirdNote" and "Capture an area to ThirdNote" to the right-click menu.
+Adds "Save selection to ThirdNote", "Save this whole page to ThirdNote" and "Capture an area to ThirdNote" to the right-click menu.
+```
+
+scripting
+```
+Used only when the user presses Save page: reads the content of large embedded frames on that page (for example an online spreadsheet shown inside a frame) so it can be saved. Nothing runs in frames otherwise.
 ```
 
 Host permission (<all_urls>)
 ```
-Users study from many sites (AI chats, video sites, encyclopedias, news, PDFs), so the highlight toolbar must work on any page the user selects text on. The content script only reads the text the user selects, or a chat the user explicitly chooses to save. The host permission is also required by chrome.tabs.captureVisibleTab for the screenshot feature, which runs only when the user asks for it.
+Users study from many sites (AI chats, video sites, encyclopedias, news, online documents), so the highlight toolbar and Save page must work on any page. The content script reads only the text the user selects, or a page or chat the user explicitly chooses to save. The host permission is also required by chrome.tabs.captureVisibleTab for screenshots, and to keep copies of pictures in a saved page, both only when the user asks.
 ```
 
 **Remote code**
