@@ -253,3 +253,12 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 .msg-body [data-post="tile"] [data-part="stats"] { margin: auto 0 0 !important; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .msg-body [data-post="tile"] [data-part="stats"] small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 @media print { .msg-body [data-part="grid"] { grid-template-columns: 1fr 1fr; } .msg-body [data-post="tile"] { break-inside: avoid; } }
+
+/* The row of stories above a saved feed: small cards, many across. */
+.msg-body [data-part="strip"] { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin: 0 0 18px; }
+.msg-body [data-part="strip"] [data-post="tile"] { padding: 6px 6px 8px; gap: 6px; font-size: 12.5px; }
+.msg-body [data-part="strip"] [data-part="media"] { order: -1; }
+.msg-body [data-part="strip"] [data-part="media"] img { aspect-ratio: 9 / 14; max-height: 210px; }
+.msg-body [data-part="strip"] [data-part="title"] { font-weight: 600; -webkit-line-clamp: 1; }
+.msg-body [data-part="strip"] [data-part="stats"] { display: none; }
+@media print { .msg-body [data-part="strip"] { grid-template-columns: repeat(5, 1fr); } }

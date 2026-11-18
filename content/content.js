@@ -78,7 +78,7 @@
     setTimeout(rememberFeed, 2500);
   }
 
-  const feedSeen = { page: null, tiles: false, cards: new Map() }; // key -> card html, in the order first seen
+  const feedSeen = { page: null, tiles: false, top: [], cards: new Map() }; // key -> card html, in the order first seen
   let feedTimer = 0;
 
   function rememberFeed(all = false) {
@@ -86,6 +86,7 @@
     if (feedSeen.page !== pageKey()) {
       feedSeen.page = pageKey();
       feedSeen.cards.clear();
+      feedSeen.top = [];
     }
     let snap = null;
     try {
@@ -93,6 +94,7 @@
     } catch { /* a page we can't read as a feed */ }
     if (!snap) return null;
     feedSeen.tiles = snap.tiles;
+    if (snap.top.length) feedSeen.top = snap.top;
     for (const c of snap.cards) feedSeen.cards.set(c.key, c.html);
     while (feedSeen.cards.size > 400) feedSeen.cards.delete(feedSeen.cards.keys().next().value);
     return snap;
@@ -357,7 +359,7 @@
     let page = await googleDoc();
     if (!page && rememberFeed(true)) {
       // Every post seen while scrolling, not only the ones still on the page.
-      page = NMSanitize.buildFeed([...feedSeen.cards.values()], feedSeen.tiles);
+      page = NMSanitize.buildFeed([...feedSeen.cards.values()], feedSeen.tiles, feedSeen.top);
     }
     const { html: raw, text } = page || NMSanitize.fromPage(document);
     // A page of pictures (Pinterest, a gallery) is worth saving without text.
