@@ -484,7 +484,9 @@ function renderMessage(sec, m) {
   article.append(
     h('div', { class: 'msg-head' },
       h('span', {}, roleLabel(sec.source, m)),
-      own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500' }, NM.timeAgo(m.savedAt)) : null,
+      own ? h('span', { class: 'faint', style: 'text-transform:none;letter-spacing:0;font-weight:500', title: NM.fullTime(m.savedAt) },
+        h('span', { class: 'screen-only' }, NM.timeAgo(m.savedAt)),
+        h('span', { class: 'print-only' }, NM.fullTime(m.savedAt))) : null,
       m.edited && !own ? h('span', { class: 'edited-tag' }, t('rd.edited')) : null,
       state,
       acts),

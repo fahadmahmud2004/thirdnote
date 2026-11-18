@@ -154,7 +154,7 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
 /* On screen the print table is just a plain container. */
 .pf, .pf > tbody, .pf > tbody > tr, .pf-cell { display: block; width: 100%; }
 .pf { border-collapse: collapse; }
-.pf > thead, .pf > tfoot, .print-brand { display: none; }
+.pf > thead, .pf > tfoot, .print-brand, .print-only { display: none; }
 .pf-cell { padding: 0; }
 
 @media print {
@@ -174,7 +174,8 @@ mark.nm-hl.flash { outline: 2px solid var(--focus); outline-offset: 2px; }
   .pb-date { font-size: 11px; color: #6f6b64; text-align: right; }
   .link-btn, .hero .meta .pill-live + .mdot { display: none !important; }
   .hero { padding-top: 6mm; }
-  .bar, .msg-head .acts, .floating, .toast, .orphans, .no-print, .tools { display: none !important; }
+  .bar, .msg-head .acts, .floating, .toast, .orphans, .no-print, .screen-only, .tools { display: none !important; }
+  .print-only { display: inline; }
   .hero, .page { max-width: none; padding-left: 0; padding-right: 0; }
   .msg.excluded { display: none; }
   .msg-body pre { white-space: pre-wrap; }
