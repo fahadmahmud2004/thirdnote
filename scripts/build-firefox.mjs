@@ -13,10 +13,12 @@ const files = ['background.js', 'lib', 'content', 'sidepanel', 'reader', 'option
 const m = JSON.parse(readFileSync(join(root, 'manifest.json'), 'utf8'));
 
 delete m.minimum_chrome_version;
+// addons.mozilla.org allows at most 45 characters in the name.
+m.name = 'ThirdNote: Capture and Remember Anything';
 m.browser_specific_settings = {
   gecko: {
     id: 'thirdnote@fahadmahmud2004.github.io',
-    strict_min_version: '128.0',
+    strict_min_version: '140.0',
     // Everything stays in the browser; nothing is sent to a server.
     data_collection_permissions: { required: ['none'] },
   },

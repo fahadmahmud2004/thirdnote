@@ -84,7 +84,7 @@ PRIVATE BY DESIGN
 
 Light and dark themes. English and Bangla.
 
-Made by Fahad Mahmud (fahadmahmud.com).
+Made by Fahad Mahmud (BUET CSE, ex-NDC), fahadmahmud.com.
 ```
 
 **Graphic assets** (all in `store/images/`)
