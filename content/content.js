@@ -325,21 +325,83 @@
       await startTracking();
       return;
     }
+    // Read the page first: feeds keep changing while a dialog is open.
     const { html: raw, text } = NMSanitize.fromPage(document);
     if (!text) throw new Error(t('err.emptyPage'));
     const topic = destination() || (await pickTopic(t('picker.savePage')));
     if (!topic) return;
-    toast(t('toast.savingPage'));
-    const html = await inlineImages(raw);
     const src = await pageSourceFor(topic);
+    // Saved before (a feed looks different every visit): replace it, or keep
+    // both with the new one below.
+    const full = await call('getSourceFull', { id: src.id });
+    const earlier = (full?.messages || []).filter((m) => m.role === 'page').sort((a, b) => a.order - b.order);
+    let mode = 'add';
+    if (earlier.length) {
+      const last = earlier[earlier.length - 1];
+      mode = await askChoice({
+        title: t('again.title'),
+        text: t('again.text', { name: topic.name, time: stamp(last.savedAt) }),
+        choices: [
+          { id: null, label: t('common.cancel') },
+          { id: 'replace', label: t('again.replace') },
+          { id: 'add', label: t('again.add'), primary: true },
+        ],
+      });
+      if (!mode) return;
+    }
+    toast(t('toast.savingPage'));
+    const now = Date.now();
+    const html = `<p><small>${NM.escapeHtml(t('again.savedAt', { time: stamp(now) }))}</small></p>${await inlineImages(raw)}`;
+    if (mode === 'replace') {
+      for (const m of earlier) await call('deleteMessage', { id: m.id });
+    }
     await call('syncMessages', {
       sourceId: src.id,
       title: (adapter && !adapter.generic && adapter.title()) || document.title || location.hostname,
       url: location.href.split('#')[0],
-      messages: [{ key: 'page', role: 'page', html, text, order: 0 }],
+      messages: [{ key: `page-${now}`, role: 'page', html, text, order: mode === 'replace' ? earlier[0].order : now }],
     });
     await refresh();
-    toast(t('toast.pageSaved', { name: topic.name }));
+    toast(t(mode === 'replace' ? 'toast.pageReplaced' : earlier.length ? 'toast.pageAdded' : 'toast.pageSaved', { name: topic.name }));
+  }
+
+  function stamp(ms) {
+    return new Date(ms).toLocaleString(NM.getLang() === 'bn' ? 'bn-BD' : undefined, {
+      day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit',
+    });
+  }
+
+  // A small dialog with a few buttons; resolves with the chosen id.
+  function askChoice({ title, text, choices }) {
+    const a = ui.ask;
+    a.title.textContent = title;
+    a.text.textContent = text;
+    showLayer(a.overlay);
+    return new Promise((resolve) => {
+      const done = (id) => {
+        hideLayer(a.overlay);
+        document.removeEventListener('keydown', onKey, true);
+        resolve(id);
+      };
+      const onKey = (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          done(null);
+        }
+      };
+      document.addEventListener('keydown', onKey, true);
+      a.actions.replaceChildren(...choices.map((c) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `btn${c.primary ? ' primary' : c.id ? '' : ' cancel'}`;
+        b.textContent = c.label;
+        b.onclick = () => done(c.id);
+        return b;
+      }));
+      a.close.onclick = () => done(null);
+      a.overlay.onclick = (e) => e.target === a.overlay && done(null);
+      a.actions.querySelector('.primary')?.focus();
+    });
   }
 
   function hasBothRoles() {
@@ -870,6 +932,18 @@
         </div>
       </div>
 
+      <div class="overlay ask-overlay" popover="manual" hidden>
+        <div class="sheet ask">
+          <div class="sheet-head">
+            <div class="brand">${BRAND_MARK}<span>ThirdNote</span></div>
+            <button type="button" class="icon-btn close">${icon('x', 17)}</button>
+          </div>
+          <h3 class="ask-title"></h3>
+          <p class="ask-text"></p>
+          <div class="actions ask-actions"></div>
+        </div>
+      </div>
+
       <div class="toast" popover="manual" hidden><span class="toast-ic"></span><span class="toast-text"></span></div>`;
     document.documentElement.appendChild(host);
 
@@ -943,6 +1017,7 @@
     const form = root.querySelector('.picker');
     const shotOverlay = root.querySelector('.shot-overlay');
     const capLayer = root.querySelector('.cap');
+    const askOverlay = root.querySelector('.ask-overlay');
     return {
       host, root, tb, note, menu,
       noteWrap: root.querySelector('.note-wrap'),
@@ -970,6 +1045,13 @@
         save: form.querySelector('.primary'),
         cancel: form.querySelector('.cancel'),
         close: form.querySelector('.close'),
+      },
+      ask: {
+        overlay: askOverlay,
+        title: askOverlay.querySelector('.ask-title'),
+        text: askOverlay.querySelector('.ask-text'),
+        actions: askOverlay.querySelector('.ask-actions'),
+        close: askOverlay.querySelector('.close'),
       },
       capture: {
         layer: capLayer,
@@ -1213,6 +1295,7 @@
     .cap-bar > .ic { color: var(--muted); }
 
     .shot { width: min(480px, calc(100vw - 32px)); }
+    .ask-text { margin: -4px 0 0; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
     .shot-img { border-radius: 12px; overflow: hidden; border: 0; background: var(--surface-2); max-height: 300px; display: grid; place-items: center; }
     .shot-img img { display: block; max-width: 100%; max-height: 300px; object-fit: contain; }
     .moment { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: #b42318;
